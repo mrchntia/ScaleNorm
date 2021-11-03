@@ -129,4 +129,6 @@ dmypy.json
 .pyre/
 
 # custom
-/data
+data
+.DS_Store
+notebooks/.DS_Store
