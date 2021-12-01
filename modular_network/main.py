@@ -14,9 +14,9 @@ import torchvision.transforms as transforms
 
 from opacus import PrivacyEngine
 
-from resnet_pytorch import resnet18
-from densenet_pytorch import densenet121
-from vgg_pytorch import vgg11, vgg11_gn
+from resnet_pytorch import resnet18, resnet34, resnet50
+from densenet_pytorch import densenet121, densenet161, densenet169, densenet201
+from vgg_pytorch import vgg11, vgg11_gn, vgg13, vgg13_gn, vgg16, vgg16_gn, vgg19, vgg19_gn
 
 
 class Parameters:
@@ -70,8 +70,19 @@ def parse_args(args):
     parser.add_argument('--model-arch', type=str, default='densenet121', choices=[
         'vgg11',
         'vgg11_gn',
+        'vgg13',
+        'vgg13_gn',
+        'vgg16',
+        'vgg16_gn',
+        'vgg19',
+        'vgg19_gn',
         'resnet18',
-        'densenet121'
+        'resnet34',
+        'resnet50',
+        'densenet121',
+        'densenet161',
+        'densenet169',
+        'densenet201'
     ])
     parser.add_argument('--sample-rate', type=float, default=0.004)
     parser.add_argument('--test-batch-size', type=int, default=200)
@@ -168,9 +179,20 @@ def test(model, test_loader, device):
 
 nets: Dict[str, Callable] = {
     "vgg11": vgg11,
-    "vgg11_bn": vgg11_gn,
+    "vgg11_gn": vgg11_gn,
+    "vgg13": vgg13,
+    "vgg13_gn": vgg13_gn,
+    "vgg16": vgg16,
+    "vgg16_gn": vgg16_gn,
+    "vgg19": vgg19,
+    "vgg19_gn": vgg19_gn,
     "resnet18": resnet18,
-    "densenet121": densenet121
+    "resnet34": resnet34,
+    "resnet50": resnet50,
+    "densenet121": densenet121,
+    "densenet161": densenet161,
+    "densenet169": densenet169,
+    "densenet201": densenet201
 }
 
 
