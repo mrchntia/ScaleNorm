@@ -21,46 +21,45 @@ from vgg_pytorch import vgg11, vgg11_gn, vgg13, vgg13_gn, vgg16, vgg16_gn, vgg19
 
 class Parameters:
     def __init__(self,
-                 dataset,
-                 sample_rate,
-                 act_func,
-                 model_arch,
-                 epochs=4,
-                 learning_rate=0.1,
-                 momentum=0.9,
-                 target_epsilon=7.0,
-                 grad_norm=1.0,
-                 sigma=1.0
+                 dataset: str,
+                 sample_rate: float,
+                 act_func: str,
+                 model_arch: str,
+                 epochs: int = 4,
+                 learning_rate: float = 0.001,
+                 momentum: float = 0.9,
+                 target_epsilon: float = 7.0,
+                 grad_norm: float = 1.0,
+                 sigma: float = 1.0
                  ):
 
-        self.dataset = dataset
-        self.epochs = epochs
-        self.sample_rate = sample_rate
-        self.learning_rate = learning_rate
-        self.momentum = momentum
-        self.target_epsilon = target_epsilon
-        self.grad_norm = grad_norm
-        self.sigma = sigma
-        self.model_arch = model_arch
+        self.dataset: str = dataset
+        self.epochs: int = epochs
+        self.sample_rate: float = sample_rate
+        self.learning_rate: float = learning_rate
+        self.momentum: float = momentum
+        self.target_epsilon: float = target_epsilon
+        self.grad_norm: float = grad_norm
+        self.sigma: float = sigma
+        self.model_arch: str = model_arch
 
         if act_func == 'tanh':
-            self.act_func = nn.Tanh
+            self.act_func: Callable = nn.Tanh
         elif act_func == 'relu':
-            self.act_func = nn.ReLU
+            self.act_func: Callable = nn.ReLU
 
         if self.dataset == 'CIFAR':
-            self.input_channels = 3
-            self.num_classes = 10
+            self.input_channels: int = 3
+            self.num_classes: int = 10
 
         # Fixed
-        self.test_batch_size = 512
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.privacy = True
-        self.delta = 1e-5
-        self.log_interval = 1
-        self.input_channels = 3
-        self.secure_rng = False
-        self.group_norm = None
+        self.test_batch_size: int = 512
+        self.device: torch.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.privacy: bool = True
+        self.delta: float = 1e-5
+        self.log_interval: int = 1
+        self.secure_rng: bool = False
+        self.group_norm: bool = None
 
 
 def parse_args(args):
@@ -152,8 +151,8 @@ def train(model, train_loader, params, optimizer, criterion):
 
 def test(model, test_loader, device):
     model.eval()
-    test_loss = 0
-    correct = 0
+    test_loss: float = 0
+    correct: int = 0
     with torch.no_grad():
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
@@ -199,7 +198,7 @@ nets: Dict[str, Callable] = {
 if __name__ == "__main__":
     warnings.filterwarnings("ignore")
     # set seed to make experiments deterministic
-    seed = 50
+    seed: int = 50
     torch.backends.cudnn.deterministic = True
     random.seed(seed)
     np.random.seed(seed)
