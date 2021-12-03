@@ -4,6 +4,7 @@ import argparse
 import random
 import numpy as np
 import warnings
+import uuid
 
 import torch
 import torch.nn as nn
@@ -25,12 +26,13 @@ class Parameters:
                  sample_rate: float,
                  act_func: str,
                  model_arch: str,
-                 epochs: int = 4,
-                 learning_rate: float = 0.001,
-                 momentum: float = 0.9,
-                 target_epsilon: float = 7.0,
-                 grad_norm: float = 1.0,
-                 sigma: float = 1.0
+                 epochs: int,
+                 learning_rate: float,
+                 momentum: float,
+                 target_epsilon: float,
+                 grad_norm: float,
+                 sigma: float,
+                 privacy: bool
                  ):
 
         self.dataset: str = dataset
@@ -42,6 +44,7 @@ class Parameters:
         self.grad_norm: float = grad_norm
         self.sigma: float = sigma
         self.model_arch: str = model_arch
+        self.privacy: bool = privacy
 
         if act_func == 'tanh':
             self.act_func: Callable = nn.Tanh
@@ -55,17 +58,15 @@ class Parameters:
         # Fixed
         self.test_batch_size: int = 512
         self.device: torch.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.privacy: bool = True
         self.delta: float = 1e-5
-        self.log_interval: int = 1
+        self.log_interval: int = 20
         self.secure_rng: bool = False
-        self.group_norm: bool = None
+        self.group_norm: bool = False
 
 
 def parse_args(args):
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, default='CIFAR', choices=['CIFAR'])
-    parser.add_argument('--act-func', type=str, default='tanh', choices=['tanh', 'relu'])
     parser.add_argument('--model-arch', type=str, default='densenet121', choices=[
         'vgg11',
         'vgg11_gn',
@@ -84,7 +85,14 @@ def parse_args(args):
         'densenet201'
     ])
     parser.add_argument('--sample-rate', type=float, default=0.004)
-    parser.add_argument('--test-batch-size', type=int, default=200)
+    parser.add_argument('--epochs', type=int, default=10)
+    parser.add_argument('--act-func', type=str, default='tanh', choices=['tanh', 'relu'])
+    parser.add_argument('--learning-rate', type=float, default=0.001)
+    parser.add_argument('--target-epsilon', type=float, default=5.0)
+    parser.add_argument('--noise-mult', type=float, default=1.0)
+    parser.add_argument('--momentum', type=float, default=0.9)
+    parser.add_argument('--grad-norm', type=float, default=1.0)
+    parser.add_argument('--privacy', type=bool, action=argparse.BooleanOptionalAction, default=True)
     return parser.parse_args(args)
 
 
@@ -125,9 +133,10 @@ def train(model, train_loader, params, optimizer, criterion):
         optimizer.step()
 
         # Get current params form privacy engine
-        epsilon, best_alpha = optimizer.privacy_engine.get_privacy_spent(params.delta)
-        grad_norm = optimizer.privacy_engine.max_grad_norm
-        noise_multiplier = optimizer.privacy_engine.noise_multiplier
+        if params.privacy:
+            epsilon, best_alpha = optimizer.privacy_engine.get_privacy_spent(params.delta)
+            grad_norm = optimizer.privacy_engine.max_grad_norm
+            noise_multiplier = optimizer.privacy_engine.noise_multiplier
 
         # Print results
         if batch_idx % params.log_interval == 0:
@@ -140,12 +149,13 @@ def train(model, train_loader, params, optimizer, criterion):
                     loss.item(),
                 )
             )
-            print(
-                'ε: {:.4f}, grad norm: {:.4f}, sigma: {:.4f}'.format(
-                    epsilon,
-                    grad_norm,
-                    noise_multiplier
-                )
+            if params.privacy:
+                print(
+                    'ε: {:.4f}, grad norm: {:.4f}, sigma: {:.4f}'.format(
+                        epsilon,
+                        grad_norm,
+                        noise_multiplier
+                    )
             )
 
 
@@ -157,7 +167,6 @@ def test(model, test_loader, device):
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
             output = model(data)
-            print(output.shape())
             test_loss += torch.nn.CrossEntropyLoss(reduction='sum')(output, target).item()  # sum up batch loss
             pred = output.argmax(
                 dim=1, keepdim=True
@@ -174,6 +183,7 @@ def test(model, test_loader, device):
             100.0 * correct / len(test_loader.dataset),
         )
     )
+    return 100.0 * correct / len(test_loader.dataset)
 
 
 nets: Dict[str, Callable] = {
@@ -206,9 +216,21 @@ if __name__ == "__main__":
     torch.cuda.manual_seed_all(seed)
 
     args = parse_args(sys.argv[1:])
-    params = Parameters(args.dataset, args.sample_rate, args.act_func, args.model_arch)
+    params = Parameters(
+        args.dataset,
+        args.sample_rate,
+        args.act_func,
+        args.model_arch,
+        args.epochs,
+        args.learning_rate,
+        args.momentum,
+        args.target_epsilon,
+        args.grad_norm,
+        args.noise_mult,
+        args.privacy
+    )
 
-    model = nets[params.model_arch](params)
+    model: nn.Module = nets[params.model_arch](params).to(params.device)
     print(model)
 
     train_loader, test_loader = get_dataloaders(params)
@@ -233,6 +255,47 @@ if __name__ == "__main__":
         privacy_engine.to(params.device)
 
     print("Training starts")
+    acc_list: List = []
     for epoch in range(params.epochs):
         train(model, train_loader, params, optimizer, criterion)
-        test(model, test_loader, params.device)
+        acc = test(model, test_loader, params.device)
+        acc_list.append(acc)
+
+    if params.privacy:
+        final_epsilon, best_alpha = optimizer.privacy_engine.get_privacy_spent(params.delta)
+        final_grad_norm = optimizer.privacy_engine.max_grad_norm
+        final_noise_multiplier = optimizer.privacy_engine.noise_multiplier
+    else:
+        final_epsilon, best_alpha = None, None
+        final_grad_norm = None
+        final_noise_multiplier = None
+    uuid = uuid.uuid4()
+    torch.save(model, str(uuid))
+    file = open((str(uuid) + ".txt"), "w")
+    file.write(
+        'dataset: {}, model_arch: {}, act_func: {}, \nlearning_rate: {}, sample_rate: {}, epochs: {}, momentum: {}, \n'.format(
+            params.dataset,
+            params.model_arch,
+            args.act_func,
+            params.learning_rate,
+            params.sample_rate,
+            params.epochs,
+            params.momentum,
+        )
+    )
+    if params.privacy:
+        file.write(
+            'target_epsilon: {}, grad_norm: {}, noise_mult: {}\nfinal_epsilon: {}, final_grad_norm: {}, final_nosie_mult: {}, \n'.format(
+                params.target_epsilon,
+                params.grad_norm,
+                params.sigma,
+                final_epsilon,
+                final_grad_norm,
+                final_noise_multiplier
+            )
+        )
+    file.write('test_acc: {}\n'.format(acc_list))
+
+    file.close()
+
+
