@@ -16,8 +16,36 @@ import torchvision.transforms as transforms
 from opacus import PrivacyEngine
 
 from resnet_pytorch import resnet18, resnet34, resnet50
+from resnet_sn import resnet18_sn
 from densenet_pytorch import densenet121, densenet161, densenet169, densenet201
 from vgg_pytorch import vgg11, vgg11_gn, vgg13, vgg13_gn, vgg16, vgg16_gn, vgg19, vgg19_gn
+from small_conv_net import small_network
+
+nets: Dict[str, Callable] = {
+    "vgg11": vgg11,
+    "vgg11_gn": vgg11_gn,
+    "vgg13": vgg13,
+    "vgg13_gn": vgg13_gn,
+    "vgg16": vgg16,
+    "vgg16_gn": vgg16_gn,
+    "vgg19": vgg19,
+    "vgg19_gn": vgg19_gn,
+    "resnet18": resnet18,
+    "resnet18_sn": resnet18_sn,
+    "resnet34": resnet34,
+    "resnet50": resnet50,
+    "densenet121": densenet121,
+    "densenet161": densenet161,
+    "densenet169": densenet169,
+    "densenet201": densenet201,
+    "smallnet": small_network
+}
+
+act_funcs: Dict[str, Callable] = {
+    "tanh": nn.Tanh,
+    "relu": nn.ReLU,
+    "selu": nn.SELU
+}
 
 
 class Parameters:
@@ -31,10 +59,9 @@ class Parameters:
                  momentum: float,
                  target_epsilon: float,
                  grad_norm: float,
-                 sigma: float,
+                 noise_mult: float,
                  privacy: bool
                  ):
-
         self.dataset: str = dataset
         self.epochs: int = epochs
         self.sample_rate: float = sample_rate
@@ -42,14 +69,10 @@ class Parameters:
         self.momentum: float = momentum
         self.target_epsilon: float = target_epsilon
         self.grad_norm: float = grad_norm
-        self.sigma: float = sigma
+        self.noise_mult: float = noise_mult
         self.model_arch: str = model_arch
         self.privacy: bool = privacy
-
-        if act_func == 'tanh':
-            self.act_func: Callable = nn.Tanh
-        elif act_func == 'relu':
-            self.act_func: Callable = nn.ReLU
+        self.act_func: Callable = act_funcs[act_func]
 
         if self.dataset == 'CIFAR':
             self.input_channels: int = 3
@@ -58,7 +81,7 @@ class Parameters:
         # Fixed
         self.test_batch_size: int = 512
         self.device: torch.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.delta: float = 1e-5
+        self.target_delta: float = 1e-5
         self.log_interval: int = 20
         self.secure_rng: bool = False
         self.group_norm: bool = False
@@ -67,7 +90,7 @@ class Parameters:
 def parse_args(args):
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, default='CIFAR', choices=['CIFAR'])
-    parser.add_argument('--model-arch', type=str, default='densenet121', choices=[
+    parser.add_argument('--model-arch', type=str, default='vgg11', choices=[
         'vgg11',
         'vgg11_gn',
         'vgg13',
@@ -77,19 +100,21 @@ def parse_args(args):
         'vgg19',
         'vgg19_gn',
         'resnet18',
+        'resnet18_sn',
         'resnet34',
         'resnet50',
         'densenet121',
         'densenet161',
         'densenet169',
-        'densenet201'
+        'densenet201',
+        'smallnet'
     ])
     parser.add_argument('--sample-rate', type=float, default=0.004)
     parser.add_argument('--epochs', type=int, default=10)
-    parser.add_argument('--act-func', type=str, default='tanh', choices=['tanh', 'relu'])
+    parser.add_argument('--act-func', type=str, default='tanh', choices=['tanh', 'relu', 'selu'])
     parser.add_argument('--learning-rate', type=float, default=0.001)
-    parser.add_argument('--target-epsilon', type=float, default=5.0)
-    parser.add_argument('--noise-mult', type=float, default=1.0)
+    parser.add_argument('--target-epsilon', type=float, default=None)
+    parser.add_argument('--noise-mult', type=float, default=None)
     parser.add_argument('--momentum', type=float, default=0.9)
     parser.add_argument('--grad-norm', type=float, default=1.0)
     parser.add_argument('--privacy', type=bool, action=argparse.BooleanOptionalAction, default=True)
@@ -106,7 +131,7 @@ def get_dataloaders(params):
 
         train_loader = DataLoader(
             torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform),
-            batch_size=int(params.sample_rate*50000)
+            batch_size=int(params.sample_rate * 50000)
         )
         test_loader = DataLoader(
             torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform),
@@ -121,24 +146,14 @@ def train(model, train_loader, params, optimizer, criterion):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(params.device), target.to(params.device)
-
         optimizer.zero_grad()
-
-        # Forward and backward pass
         output = model(data)
         loss = criterion()(output, target)
         loss.backward()
-
-        # Perform update
         optimizer.step()
 
-        # Get current params form privacy engine
         if params.privacy:
-            epsilon, best_alpha = optimizer.privacy_engine.get_privacy_spent(params.delta)
-            grad_norm = optimizer.privacy_engine.max_grad_norm
-            noise_multiplier = optimizer.privacy_engine.noise_multiplier
-
-        # Print results
+            epsilon, _ = privacy_engine.accountant.get_privacy_spent(delta=params.target_delta)
         if batch_idx % params.log_interval == 0:
             print(
                 'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
@@ -151,12 +166,11 @@ def train(model, train_loader, params, optimizer, criterion):
             )
             if params.privacy:
                 print(
-                    'ε: {:.4f}, grad norm: {:.4f}, sigma: {:.4f}'.format(
+                    'ε: {:.4f}, grad norm: {:.4f}'.format(
                         epsilon,
-                        grad_norm,
-                        noise_multiplier
+                        params.grad_norm,
                     )
-            )
+                )
 
 
 def test(model, test_loader, device):
@@ -184,25 +198,6 @@ def test(model, test_loader, device):
         )
     )
     return 100.0 * correct / len(test_loader.dataset)
-
-
-nets: Dict[str, Callable] = {
-    "vgg11": vgg11,
-    "vgg11_gn": vgg11_gn,
-    "vgg13": vgg13,
-    "vgg13_gn": vgg13_gn,
-    "vgg16": vgg16,
-    "vgg16_gn": vgg16_gn,
-    "vgg19": vgg19,
-    "vgg19_gn": vgg19_gn,
-    "resnet18": resnet18,
-    "resnet34": resnet34,
-    "resnet50": resnet50,
-    "densenet121": densenet121,
-    "densenet161": densenet161,
-    "densenet169": densenet169,
-    "densenet201": densenet201
-}
 
 
 if __name__ == "__main__":
@@ -238,21 +233,27 @@ if __name__ == "__main__":
     criterion = torch.nn.CrossEntropyLoss
     optimizer = torch.optim.SGD(model.parameters(), params.learning_rate, params.momentum)
 
-    # Init opacus privacy engine
     if params.privacy:
-        privacy_engine = PrivacyEngine(
-            model,
-            sample_rate=params.sample_rate,
-            alphas=[*range(2, 64)],
-            epochs=params.epochs,
-            target_delta=params.delta,
-            target_epsilon=params.target_epsilon,
-            noise_multiplier=params.sigma,
-            max_grad_norm=params.grad_norm,
-            secure_rng=params.secure_rng,
-        )
-        privacy_engine.attach(optimizer)
-        privacy_engine.to(params.device)
+        privacy_engine = PrivacyEngine()
+        if params.target_epsilon:
+            model, optimizer, train_loader = privacy_engine.make_private_with_epsilon(
+                module=model,
+                optimizer=optimizer,
+                data_loader=train_loader,
+                target_epsilon=params.target_epsilon,
+                target_delta=params.target_delta,
+                epochs=params.epochs,
+                max_grad_norm=params.grad_norm
+            )
+
+        else:
+            model, optimizer, train_loader = privacy_engine.make_private(
+                module=model,
+                optimizer=optimizer,
+                data_loader=train_loader,
+                noise_multiplier=params.noise_mult,
+                max_grad_norm=params.grad_norm,
+            )
 
     print("Training starts")
     acc_list: List = []
@@ -262,16 +263,20 @@ if __name__ == "__main__":
         acc_list.append(acc)
 
     if params.privacy:
-        final_epsilon, best_alpha = optimizer.privacy_engine.get_privacy_spent(params.delta)
-        final_grad_norm = optimizer.privacy_engine.max_grad_norm
-        final_noise_multiplier = optimizer.privacy_engine.noise_multiplier
+        final_epsilon, _ = privacy_engine.accountant.get_privacy_spent(delta=params.target_delta)
     else:
         final_epsilon, best_alpha = None, None
-        final_grad_norm = None
-        final_noise_multiplier = None
-    uuid = uuid.uuid4()
-    torch.save(model, str(uuid))
-    file = open((str(uuid) + ".txt"), "w")
+
+    file_name = "{}_{}_{:.2f}_{}_{}_model".format(
+        params.model_arch,
+        params.epochs,
+        final_epsilon,
+        params.learning_rate,
+        params.grad_norm
+    )
+    # torch.save(model, "exp03/{}".format(file_name))
+    file = open("exp03/summary_exp03.txt", "a")
+    file.write("Model:  {}\n".format(file_name))
     file.write(
         'dataset: {}, model_arch: {}, act_func: {}, \nlearning_rate: {}, sample_rate: {}, epochs: {}, momentum: {}, \n'.format(
             params.dataset,
@@ -285,17 +290,13 @@ if __name__ == "__main__":
     )
     if params.privacy:
         file.write(
-            'target_epsilon: {}, grad_norm: {}, noise_mult: {}\nfinal_epsilon: {}, final_grad_norm: {}, final_nosie_mult: {}, \n'.format(
+            'target_epsilon: {}, grad_norm: {}, noise_mult: {}\nfinal_epsilon: {:.2f}, final_grad_norm: {:.2f}, \n'.format(
                 params.target_epsilon,
                 params.grad_norm,
-                params.sigma,
+                params.noise_mult,
                 final_epsilon,
-                final_grad_norm,
-                final_noise_multiplier
+                params.grad_norm,
             )
         )
-    file.write('test_acc: {}\n'.format(acc_list))
-
+    file.write('test_acc: {}\n\n'.format(acc_list))
     file.close()
-
-
