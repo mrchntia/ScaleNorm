@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="660e9ee5-0014-45c6-b3be-c1e55a76e480" name="workstation-dima">
+        <fileTransfer rootFolder="/home/helena" accessType="SFTP" host="100.121.188.63" port="22" sshConfigId="1a582a16-1909-4598-a764-87818e9c877a" sshConfig="helena@100.121.188.63:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+      <webServer id="cda69488-96ec-4356-ae5a-e6206a8caf5b" name="studentserver">
+        <fileTransfer rootFolder="/home/helena" accessType="SFTP" host="100.111.96.65" port="22" sshConfigId="19829424-7bfe-4e6f-a9b2-94dbbb47af6e" sshConfig="helena@100.111.96.65:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>

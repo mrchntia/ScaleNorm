@@ -17,6 +17,7 @@ from opacus import PrivacyEngine
 
 from resnet_pytorch import resnet18, resnet34, resnet50
 from resnet_sn import resnet18_sn
+from resnet9 import resnet9
 from densenet_pytorch import densenet121, densenet161, densenet169, densenet201
 from vgg_pytorch import vgg11, vgg11_gn, vgg13, vgg13_gn, vgg16, vgg16_gn, vgg19, vgg19_gn
 from small_conv_net import small_network
@@ -30,6 +31,7 @@ nets: Dict[str, Callable] = {
     "vgg16_gn": vgg16_gn,
     "vgg19": vgg19,
     "vgg19_gn": vgg19_gn,
+    "resnet9": resnet9,
     "resnet18": resnet18,
     "resnet18_sn": resnet18_sn,
     "resnet34": resnet34,
@@ -44,7 +46,8 @@ nets: Dict[str, Callable] = {
 act_funcs: Dict[str, Callable] = {
     "tanh": nn.Tanh,
     "relu": nn.ReLU,
-    "selu": nn.SELU
+    "selu": nn.SELU,
+    "mish": nn.Mish
 }
 
 
@@ -60,7 +63,9 @@ class Parameters:
                  target_epsilon: float,
                  grad_norm: float,
                  noise_mult: float,
-                 privacy: bool
+                 privacy: bool,
+                 scale_norm: bool,
+                 norm_layer: str
                  ):
         self.dataset: str = dataset
         self.epochs: int = epochs
@@ -73,9 +78,11 @@ class Parameters:
         self.model_arch: str = model_arch
         self.privacy: bool = privacy
         self.act_func: Callable = act_funcs[act_func]
+        self.scale_norm: bool = scale_norm
+        self.norm_layer: str = norm_layer
 
         if self.dataset == 'CIFAR':
-            self.input_channels: int = 3
+            self.in_channels: int = 3
             self.num_classes: int = 10
 
         # Fixed
@@ -90,7 +97,7 @@ class Parameters:
 def parse_args(args):
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, default='CIFAR', choices=['CIFAR'])
-    parser.add_argument('--model-arch', type=str, default='vgg11', choices=[
+    parser.add_argument('--model-arch', type=str, default='resnet18', choices=[
         'vgg11',
         'vgg11_gn',
         'vgg13',
@@ -99,6 +106,7 @@ def parse_args(args):
         'vgg16_gn',
         'vgg19',
         'vgg19_gn',
+        'resnet9',
         'resnet18',
         'resnet18_sn',
         'resnet34',
@@ -111,13 +119,15 @@ def parse_args(args):
     ])
     parser.add_argument('--sample-rate', type=float, default=0.004)
     parser.add_argument('--epochs', type=int, default=10)
-    parser.add_argument('--act-func', type=str, default='tanh', choices=['tanh', 'relu', 'selu'])
+    parser.add_argument('--act-func', type=str, default='tanh', choices=['tanh', 'relu', 'selu', 'mish'])
     parser.add_argument('--learning-rate', type=float, default=0.001)
     parser.add_argument('--target-epsilon', type=float, default=None)
     parser.add_argument('--noise-mult', type=float, default=None)
     parser.add_argument('--momentum', type=float, default=0.9)
     parser.add_argument('--grad-norm', type=float, default=1.0)
     parser.add_argument('--privacy', type=bool, action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument('--scale-norm', type=bool, action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument('--norm-layer', type=str, default='batch')
     return parser.parse_args(args)
 
 
@@ -130,11 +140,11 @@ def get_dataloaders(params):
         ])
 
         train_loader = DataLoader(
-            torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform),
+            torchvision.datasets.CIFAR10(root='../data', train=True, download=True, transform=transform),
             batch_size=int(params.sample_rate * 50000)
         )
         test_loader = DataLoader(
-            torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform),
+            torchvision.datasets.CIFAR10(root='../data', train=False, download=True, transform=transform),
             batch_size=params.test_batch_size,
             shuffle=False
         )
@@ -222,7 +232,9 @@ if __name__ == "__main__":
         args.target_epsilon,
         args.grad_norm,
         args.noise_mult,
-        args.privacy
+        args.privacy,
+        args.scale_norm,
+        args.norm_layer
     )
 
     model: nn.Module = nets[params.model_arch](params).to(params.device)
@@ -231,7 +243,8 @@ if __name__ == "__main__":
     train_loader, test_loader = get_dataloaders(params)
 
     criterion = torch.nn.CrossEntropyLoss
-    optimizer = torch.optim.SGD(model.parameters(), params.learning_rate, params.momentum)
+    #optimizer = torch.optim.SGD(model.parameters(), params.learning_rate, params.momentum)
+    optimizer = torch.optim.NAdam(model.parameters(), params.learning_rate)
 
     if params.privacy:
         privacy_engine = PrivacyEngine()
@@ -265,38 +278,38 @@ if __name__ == "__main__":
     if params.privacy:
         final_epsilon, _ = privacy_engine.accountant.get_privacy_spent(delta=params.target_delta)
     else:
-        final_epsilon, best_alpha = None, None
+        final_epsilon, best_alpha = 0, 0
 
-    file_name = "{}_{}_{:.2f}_{}_{}_model".format(
-        params.model_arch,
-        params.epochs,
-        final_epsilon,
-        params.learning_rate,
-        params.grad_norm
-    )
-    # torch.save(model, "exp03/{}".format(file_name))
-    file = open("exp03/summary_exp03.txt", "a")
-    file.write("Model:  {}\n".format(file_name))
-    file.write(
-        'dataset: {}, model_arch: {}, act_func: {}, \nlearning_rate: {}, sample_rate: {}, epochs: {}, momentum: {}, \n'.format(
-            params.dataset,
-            params.model_arch,
-            args.act_func,
-            params.learning_rate,
-            params.sample_rate,
-            params.epochs,
-            params.momentum,
-        )
-    )
-    if params.privacy:
-        file.write(
-            'target_epsilon: {}, grad_norm: {}, noise_mult: {}\nfinal_epsilon: {:.2f}, final_grad_norm: {:.2f}, \n'.format(
-                params.target_epsilon,
-                params.grad_norm,
-                params.noise_mult,
-                final_epsilon,
-                params.grad_norm,
-            )
-        )
-    file.write('test_acc: {}\n\n'.format(acc_list))
-    file.close()
+    # file_name = "{}_{}_{:.2f}_{}_{}_model".format(
+    #     params.model_arch,
+    #     params.epochs,
+    #     final_epsilon,
+    #     params.learning_rate,
+    #     params.grad_norm
+    # )
+    # torch.save(model, "exp02/{}".format(file_name))
+    # file = open("exp03/summary_exp02.txt", "a")
+    # file.write("Model:  {}\n".format(file_name))
+    # file.write(
+    #     'dataset: {}, model_arch: {}, act_func: {}, \nlearning_rate: {}, sample_rate: {}, epochs: {}, momentum: {}, \n'.format(
+    #         params.dataset,
+    #         params.model_arch,
+    #         args.act_func,
+    #         params.learning_rate,
+    #         params.sample_rate,
+    #         params.epochs,
+    #         params.momentum,
+    #     )
+    # )
+    # if params.privacy:
+    #     file.write(
+    #         'target_epsilon: {}, grad_norm: {}, noise_mult: {}\nfinal_epsilon: {:.2f}, final_grad_norm: {:.2f}, \n'.format(
+    #             params.target_epsilon,
+    #             params.grad_norm,
+    #             params.noise_mult,
+    #             final_epsilon,
+    #             params.grad_norm,
+    #         )
+    #     )
+    # file.write('test_acc: {}\n\n'.format(acc_list))
+    # file.close()

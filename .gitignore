@@ -131,4 +131,9 @@ dmypy.json
 # custom
 data
 .DS_Store
-.notebooks/.DS_Store
+*/.DS_Store
+*/*/.DS_Store
+.idea
+*/.idea
+*/*/.idea
+

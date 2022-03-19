@@ -54,4 +54,4 @@ class SmallNetwork(nn.Module):
 
 
 def small_network(params):
-    return SmallNetwork(params.act_func, params.input_channels)
+    return SmallNetwork(params.act_func, params.in_channels)

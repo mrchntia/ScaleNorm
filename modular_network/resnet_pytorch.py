@@ -105,7 +105,7 @@ class Bottleneck(nn.Module):
         self.conv2 = conv3x3(width, width, stride, groups, dilation)
         self.gn2 = norm_layer(min(32, planes), width)
         self.conv3 = conv1x1(1, width, planes * self.expansion)
-        self.gn3 = norm_layer(planes * self.expansion)
+        self.gn3 = norm_layer(min(32, planes), planes * self.expansion)
         self.act = act_func()
         self.downsample = downsample
         self.stride = stride
@@ -189,9 +189,9 @@ class ResNet(nn.Module):
         if zero_init_residual:
             for m in self.modules():
                 if isinstance(m, Bottleneck):
-                    nn.init.constant_(m.bn3.weight, 0)  # type: ignore[arg-type]
+                    nn.init.constant_(m.gn3.weight, 0)  # type: ignore[arg-type]
                 elif isinstance(m, BasicBlock):
-                    nn.init.constant_(m.bn2.weight, 0)  # type: ignore[arg-type]
+                    nn.init.constant_(m.gn2.weight, 0)  # type: ignore[arg-type]
 
     def _make_layer(
         self,
