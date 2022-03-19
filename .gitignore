@@ -136,4 +136,5 @@ data
 .idea
 */.idea
 */*/.idea
-
+*/models
+*/saved_images
