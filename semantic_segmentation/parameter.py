@@ -44,12 +44,20 @@ class Parameters:
         if self.dataset == "carvana":
             self.image_height = 160  # 1280 originally
             self.image_width = 240  # 1918 originally
+            self.in_channels: int = 3
+            self.out_channels: int = 1
         elif self.dataset == "pascal":
             self.image_height = 320
             self.image_width = 480
-        self.in_channels: int = 3
-        self.out_channels: int = 1
-        self.learning_rate: float = 0.001
+            self.in_channels: int = 3
+            self.out_channels: int = 1
+        elif self.dataset in ["pancreas", "liver"]:
+            self.image_height = 512
+            self.image_width = 512
+            self.in_channels: int = 1
+            self.out_channels: int = 1
+
+        self.learning_rate: float = 0.0005
         self.device: torch.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.target_delta: float = 1e-5
         self.secure_rng: bool = False
@@ -57,4 +65,5 @@ class Parameters:
         self.seed: int = 1232
         self.optimizer: Callable = optim.NAdam
         self.final_epsilon: Optional[float] = None
-        self.val_acc_list: Optional[List[float]] = None
+        self.val_loss_list: Optional[List[float]] = None
+        self.dice_score_list: Optional[List[float]] = None
