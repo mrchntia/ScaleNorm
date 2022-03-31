@@ -64,6 +64,7 @@ def main():
 
     def objective(trial):
         params.privacy = trial.suggest_categorical("privacy", [True, False])
+        params.target_epsilon = trial.suggest_categorical("target_epsilon", [10, 5, 3, 0])
         params.norm_layer = trial.suggest_categorical("norm_layer", ["group", "batch"])
         params.num_groups = trial.suggest_categorical("num_groups", [1, 8, 16, 32, 64, 2048, 0])
         params.scale_norm = trial.suggest_categorical("scale_norm", [True, False])
@@ -96,7 +97,7 @@ def main():
                 scale_norm=params.scale_norm,
                 act_func=params.act_func,
                 norm_layer=params.norm_layer,
-                # num_groups=params.num_groups,
+                num_groups=params.num_groups,
             ).to(params.device)
         # print(model)
 
@@ -159,6 +160,7 @@ def main():
     # optuna.delete_study(study_name, storage)
     search_space = {
         "privacy": [True],  # True, False
+        "target_epsilon": [10],  # 10, 5, 3, 0
         "norm_layer": ["group"],
         "num_groups": [1, 8, 16, 32, 64, 2048],  # 0, 1, 8, 16, 32, 64, 2048
         "scale_norm": [True, False],  # True, False
