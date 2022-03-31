@@ -87,7 +87,7 @@ class UNet9(nn.Module):
 
         if scale_norm:
             self.scale_norm_1 = (
-                nn.BatchNorm2d(256) if norm_layer == "batch" else nn.GroupNorm(min(num_groups[1], 256), 256)
+                nn.BatchNorm2d(256) if norm_layer == "batch" else nn.GroupNorm(min(num_groups, 256), 256)
             )
             self.scale_norm_2 = (
                 nn.BatchNorm2d(128) if norm_layer == "batch" else nn.GroupNorm(min(num_groups, 128), 128)
