@@ -43,7 +43,7 @@ class MedicalDataset(Dataset):
 
     def __getitem__(self, index):
         img_path = os.path.join(self.image_dir, self.images[index])
-        mask_path = os.path.join(self.mask_dir, self.images[index])  # .replace(".jpg", "_mask.gif")
+        mask_path = os.path.join(self.mask_dir, self.images[index])
         image = np.array(Image.open(img_path).convert("L"), dtype=np.float32)
         mask = np.array(Image.open(mask_path).convert("L"), dtype=np.float32)  # single channel image -> gray-scale
         mask[mask == 0.0] = 0.0

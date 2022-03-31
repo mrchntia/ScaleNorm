@@ -20,10 +20,11 @@ def save_checkpoint(model, params, filename="my_checkpoint.pth.tar"):
     torch.save(state, filename)
 
 
-def load_checkpoint(file_path, model):
+def load_checkpoint(file_path, model=None):
     print("=> Loading checkpoint")
     checkpoint = torch.load(file_path)
-    model.load_state_dict(checkpoint["state_dict"])
+    if model is not None:
+        model.load_state_dict(checkpoint["state_dict"])
     print("Parameters used for training")
     for key in checkpoint:
         if key not in ["state_dict", "optimizer"]:
@@ -104,20 +105,23 @@ def get_pancreas_dataloaders(params):
 
     train_transform = A.Compose([
         A.Resize(height=params.image_height, width=params.image_width),
-        # A.Normalize(
-        #     mean=[0.0, 0.0, 0.0],
-        #     std=[1.0, 1.0, 1.0],
-        #     max_pixel_value=255.0,
-        # ),
+        A.Rotate(limit=10, p=1.0),
+        A.HorizontalFlip(p=0.5),
+        A.VerticalFlip(p=0.1),
+        A.Normalize(
+            mean=[0.0],
+            std=[1.0],
+            max_pixel_value=255.0,
+        ),
         ToTensorV2(),
     ])  # TODO: Maybe RandomCrop or resize
     val_transform = A.Compose([
         A.Resize(height=params.image_height, width=params.image_width),
-        # A.Normalize(
-        #     mean=[0.0, 0.0, 0.0],
-        #     std=[1.0, 1.0, 1.0],
-        #     max_pixel_value=255.0,
-        # ),
+        A.Normalize(
+            mean=[0.0],
+            std=[1.0],
+            max_pixel_value=255.0,
+        ),
         ToTensorV2()
     ])  # TODO: Maybe RandomCrop or resize
 
@@ -285,7 +289,7 @@ def test(loader, model, loss_fn, device):
 
             loss_values.append(loss_fn(predictions, mask))
 
-    loss = torch.mean(torch.stack(dice_scores)).item()
+    loss = torch.mean(torch.stack(loss_values)).item()
     print(f"Average val-loss: {loss:.2f}")
     dice_score = torch.mean(torch.stack(dice_scores)).item()
     print(f"Dice Score @ threshold {threshold_value}: {dice_score:.2f}")
