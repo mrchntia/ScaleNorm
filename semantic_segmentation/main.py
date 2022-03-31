@@ -1,5 +1,4 @@
 import torch
-import torch.nn as nn
 from opacus import PrivacyEngine
 import optuna
 from optuna import TrialPruned
@@ -13,6 +12,7 @@ import numpy as np
 import random
 
 from unet9 import UNet9
+from linknet9 import LinkNet9
 from monet import MoNet
 from parameter import Parameters
 from utils import (
@@ -29,7 +29,7 @@ from utils import (
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=str, default="carvana", choices=["carvana", "pancreas", "liver"])
-    parser.add_argument("--model-arch", type=str, default="monet", choices=["monet", "unet", "unet9"])
+    parser.add_argument("--model-arch", type=str, default="monet", choices=["monet", "unet", "unet9", "linknet9"])
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--act-func", type=str, default="mish", choices=["tanh", "relu", "mish"])
@@ -39,7 +39,7 @@ def parse_args():
     parser.add_argument("--privacy", type=bool, action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--scale-norm", type=bool, action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--norm-layer", type=str, default="group")
-    parser.add_argument("--num-groups", type=Tuple[int, ...], default=(32, 32, 32, 32))
+    parser.add_argument("--num-groups", type=int, default=32)
     return parser.parse_args()
 
 
@@ -88,10 +88,20 @@ def main():
                 out_channels=params.out_channels,
                 scale_norm=params.scale_norm,
                 activation=params.act_func,
-                norm=params.norm_layer
+                norm=params.norm_layer,
+                groups=params.num_groups,
             ).to(params.device)
         elif params.model_arch == "unet9":
             model = UNet9(
+                in_channels=params.in_channels,
+                num_classes=params.out_channels,
+                scale_norm=params.scale_norm,
+                act_func=params.act_func,
+                norm_layer=params.norm_layer,
+                num_groups=params.num_groups,
+            ).to(params.device)
+        elif params.model_arch == "linknet9":
+            model = LinkNet9(
                 in_channels=params.in_channels,
                 num_classes=params.out_channels,
                 scale_norm=params.scale_norm,

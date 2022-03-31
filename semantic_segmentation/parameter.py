@@ -24,7 +24,7 @@ class Parameters:
                  privacy: bool = None,
                  scale_norm: bool = None,
                  norm_layer: str = None,
-                 num_groups: Tuple[int, ...] = None
+                 num_groups: int = None
                  ):
         self.dataset: str = dataset
         self.epochs: int = epochs
@@ -37,7 +37,7 @@ class Parameters:
         self.act_func: Callable = act_funcs[act_func]
         self.scale_norm: bool = scale_norm
         self.norm_layer: str = norm_layer
-        self.num_groups: Tuple[int, ...] = num_groups
+        self.num_groups: int = num_groups
 
         # Fixed
         self.max_batch_size = 16
