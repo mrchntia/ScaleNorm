@@ -1,4 +1,5 @@
 import torch.nn as nn
+import torch
 
 
 def conv_block(
@@ -116,12 +117,12 @@ class LinkNet9(nn.Module):
     def forward(self, xb):
         out = self.conv1(xb)
         out = self.conv2(out)
-        skip1 = out.clone()
+        skip1 = out
         out = self.res1(out) + skip1
         out = self.scale_norm_1(out)
         out = self.conv3(out)
         out = self.conv4(out)
-        skip2 = out.clone()
+        skip2 = out
         out = self.res2(out) + skip2
         out = self.scale_norm_2(out)
         out = self.conv5(out)
