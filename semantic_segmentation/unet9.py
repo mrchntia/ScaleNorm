@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 
@@ -52,67 +53,89 @@ class UNet9(nn.Module):
         self.deco1 = conv_block(
             512, 256, pool=False, upsample=True, act_func=act_func, norm_layer=norm_layer, num_groups=num_groups
         )
-        self.deco2 = nn.Sequential(
+        self.res3 = nn.Sequential(
             *[
                 conv_block(
-                    256, 256, pool=False, upsample=False, act_func=act_func, norm_layer=norm_layer, num_groups=num_groups
+                    512, 512, pool=False, upsample=False, act_func=act_func, norm_layer=norm_layer, num_groups=num_groups
                 ),
                 conv_block(
-                    256, 256, pool=False, upsample=False, act_func=act_func, norm_layer=norm_layer, num_groups=num_groups
+                    512, 512, pool=False, upsample=False, act_func=act_func, norm_layer=norm_layer, num_groups=num_groups
                 ),
             ]
         )
         self.deco3 = conv_block(
-            256, 256, pool=False, upsample=True, act_func=act_func, norm_layer=norm_layer, num_groups=num_groups
+            512, 256, pool=False, upsample=True, act_func=act_func, norm_layer=norm_layer, num_groups=num_groups
         )
         self.deco4 = conv_block(
             256, 128, pool=False, upsample=True, act_func=act_func, norm_layer=norm_layer, num_groups=num_groups
         )
-        self.deco5 = nn.Sequential(
+        self.res4 = nn.Sequential(
             *[
                 conv_block(
-                    128, 128, pool=False, upsample=False, act_func=act_func, norm_layer=norm_layer, num_groups=num_groups
+                    256, 256, pool=False, upsample=False, act_func=act_func, norm_layer=norm_layer, num_groups=num_groups
                 ),
                 conv_block(
-                    128, 128, pool=False, upsample=False, act_func=act_func, norm_layer=norm_layer, num_groups=num_groups
+                    256, 256, pool=False, upsample=False, act_func=act_func, norm_layer=norm_layer, num_groups=num_groups
                 ),
             ]
         )
         self.deco6 = conv_block(
-            128, 64, pool=False, upsample=True, act_func=act_func, norm_layer=norm_layer, num_groups=num_groups
+            256, 128, pool=False, upsample=True, act_func=act_func, norm_layer=norm_layer, num_groups=num_groups
         )
         self.head = conv_block(
-            64, num_classes, pool=False, upsample=False, act_func=act_func, norm_layer=norm_layer, num_groups=num_groups
+            128, num_classes, pool=False, upsample=False, act_func=act_func, norm_layer=norm_layer, num_groups=num_groups
         )
 
         if scale_norm:
             self.scale_norm_1 = (
-                nn.BatchNorm2d(256) if norm_layer == "batch" else nn.GroupNorm(min(num_groups, 256), 256)
+                nn.BatchNorm2d(128) if norm_layer == "batch" else nn.GroupNorm(min(num_groups, 128), 128)
             )
             self.scale_norm_2 = (
-                nn.BatchNorm2d(128) if norm_layer == "batch" else nn.GroupNorm(min(num_groups, 128), 128)
+                nn.BatchNorm2d(256) if norm_layer == "batch" else nn.GroupNorm(min(num_groups, 256), 256)
+            )
+            self.scale_norm_3 = (
+                nn.BatchNorm2d(512) if norm_layer == "batch" else nn.GroupNorm(min(num_groups, 512), 512)
+            )
+            self.scale_norm_4 = (
+                nn.BatchNorm2d(512) if norm_layer == "batch" else nn.GroupNorm(min(num_groups, 512), 512)
+            )
+            self.scale_norm_5 = (
+                nn.BatchNorm2d(256) if norm_layer == "batch" else nn.GroupNorm(min(num_groups, 256), 256)
+            )
+            self.scale_norm_6 = (
+                nn.BatchNorm2d(256) if norm_layer == "batch" else nn.GroupNorm(min(num_groups, 256), 256)
             )
         else:
             self.scale_norm_1 = nn.Identity()
             self.scale_norm_2 = nn.Identity()
+            self.scale_norm_3 = nn.Identity()
+            self.scale_norm_4 = nn.Identity()
+            self.scale_norm_5 = nn.Identity()
+            self.scale_norm_6 = nn.Identity()
 
     def forward(self, xb):
         out = self.conv1(xb)
         out = self.conv2(out)
-        skip1 = out.clone()
-        out = self.res1(out)
+        skip1 = out
+        out = self.res1(out) + skip1
+        out = self.scale_norm_1(out)
         out = self.conv3(out)
         out = self.conv4(out)
-        skip2 = out.clone()
-        out = self.res2(out)
-        out = self.conv5(out)
-        out = self.deco1(out) + skip2
-        out = self.scale_norm_1(out)
-        out = self.deco2(out)
-        out = self.deco3(out)
-        out = self.deco4(out) + skip1
+        skip2 = out
+        out = self.res2(out) + skip2
         out = self.scale_norm_2(out)
-        out = self.deco5(out)
+        out = self.conv5(out)
+        out = self.deco1(out)
+        out = torch.cat([out, skip2], dim=1)
+        out = self.scale_norm_3(out)
+        out = self.res3(out) + out
+        out = self.scale_norm_4(out)
+        out = self.deco3(out)
+        out = self.deco4(out)
+        out = torch.cat([out, skip1], dim=1)
+        out = self.scale_norm_5(out)
+        out = self.res4(out) + out
+        out = self.scale_norm_6(out)
         out = self.deco6(out)
         out = self.head(out)
         return out
