@@ -141,3 +141,5 @@ data
 */notebooks
 /grad_denoising
 /modular_network
+/semantic_segmentation/figures/
+/semantic_segmentation/histograms/
