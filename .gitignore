@@ -138,3 +138,6 @@ data
 */*/.idea
 */models
 */saved_images
+*/notebooks
+/grad_denoising
+/modular_network
