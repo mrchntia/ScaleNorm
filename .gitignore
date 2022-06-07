@@ -141,5 +141,11 @@ data
 */notebooks
 /grad_denoising
 /modular_network
-/semantic_segmentation/figures/
-/semantic_segmentation/histograms/
+*/figures/
+*/histograms/
+*/history_plots/
+*/models_pluto/
+*/wandb
+*/*.db
+*/monet.py
+*/requirements.txt
