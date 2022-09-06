@@ -1,6 +1,6 @@
 import torch
 import torchvision
-from dataset import CarvanaDataset, MedicalDataset, PascalDataset
+from dataset import CarvanaDataset, MedicalDataset
 from torch.utils.data import DataLoader
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
@@ -183,67 +183,11 @@ def get_liver_dataloaders(params):
     )
     val_loader = DataLoader(
         val_ds,
-        batch_size=params.batch_size,
+        batch_size=params.max_batch_size,
         num_workers=params.num_workers,
         pin_memory=pin_memory,
         shuffle=False,
     )
-    return train_loader, val_loader
-
-
-def get_pascal_dataloaders(params):
-    train_dir = "../data/pascalvoc2012/train_images/"
-    train_mask_dir = "../data/pascalvoc2012/train_masks/"
-    val_dir = "../data/pascalvoc2012/val_images/"
-    val_mask_dir = "../data/pascalvoc2012/val_masks/"
-    pin_memory = True
-
-    train_transform = A.Compose(
-        [
-            # TODO: Maybe RandomCrop is better than resize
-            A.Resize(height=params.image_height, width=params.image_width),
-            # A.Rotate(limit=35, p=1.0),
-            # A.HorizontalFlip(p=0.5),
-            # A.VerticalFlip(p=0.1),
-            A.Normalize(
-                mean=[0.485, 0.456, 0.406],
-                std=[0.229, 0.224, 0.225],
-                max_pixel_value=255.0,
-            ),
-            ToTensorV2(),
-        ],
-    )
-
-    val_transform = A.Compose(
-        [
-            A.Resize(height=params.image_height, width=params.image_width),
-            A.Normalize(
-                mean=[0.485, 0.456, 0.406],
-                std=[0.229, 0.224, 0.225],
-                max_pixel_value=255.0,
-            ),
-            ToTensorV2(),
-        ],
-    )
-
-    train_ds = PascalDataset(image_dir=train_dir, mask_dir=train_mask_dir, transform=train_transform)
-    val_ds = PascalDataset(image_dir=val_dir, mask_dir=val_mask_dir, transform=val_transform)
-
-    train_loader = DataLoader(
-        train_ds,
-        batch_size=params.batch_size,
-        num_workers=params.num_workers,
-        pin_memory=pin_memory,
-        shuffle=True,
-    )
-    val_loader = DataLoader(
-        val_ds,
-        batch_size=params.batch_size,
-        num_workers=params.num_workers,
-        pin_memory=pin_memory,
-        shuffle=False,
-    )
-
     return train_loader, val_loader
 
 

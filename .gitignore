@@ -149,3 +149,5 @@ data
 */*.db
 */monet.py
 */requirements.txt
+/notebooks
+**/notebooks

@@ -1,5 +1,4 @@
 import torch.nn as nn
-import torch
 
 
 def conv_block(

@@ -46,11 +46,6 @@ class Parameters:
             self.image_width = 240  # 1918 originally
             self.in_channels: int = 3
             self.out_channels: int = 1
-        elif self.dataset == "pascal":
-            self.image_height = 320
-            self.image_width = 480
-            self.in_channels: int = 3
-            self.out_channels: int = 1
         elif self.dataset in "pancreas":
             self.image_height = 256  # 256, 512
             self.image_width = 256  # 256, 512
@@ -62,7 +57,7 @@ class Parameters:
             self.in_channels: int = 1
             self.out_channels: int = 1
 
-        self.learning_rate: float = 0.001
+        self.learning_rate: float = 0.0005
         self.device: torch.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.target_delta: float = 1e-5
         self.secure_rng: bool = False

@@ -1,9 +1,10 @@
 import torch
 from opacus import PrivacyEngine
+from opacus.utils.batch_memory_manager import BatchMemoryManager
 import optuna
 from optuna import TrialPruned
 import segmentation_models_pytorch as smp
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR
 
 import argparse
 from typing import Tuple
@@ -11,8 +12,8 @@ import warnings
 import numpy as np
 import random
 
-from unet9 import UNet9
 from linknet9 import LinkNet9
+from unet9 import UNet9
 from monet import MoNet
 from parameter import Parameters
 from utils import (
@@ -30,7 +31,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=str, default="carvana", choices=["carvana", "pancreas", "liver"])
     parser.add_argument("--model-arch", type=str, default="monet", choices=["monet", "unet", "unet9", "linknet9"])
-    parser.add_argument("--batch-size", type=int, default=16)
+    parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--act-func", type=str, default="mish", choices=["tanh", "relu", "mish"])
     parser.add_argument("--target-epsilon", type=float, default=None)
@@ -64,7 +65,7 @@ def main():
 
     def objective(trial):
         params.privacy = trial.suggest_categorical("privacy", [True, False])
-        params.target_epsilon = trial.suggest_categorical("target_epsilon", [10, 5, 3, 0])
+        params.target_epsilon = trial.suggest_categorical("target_epsilon", [10, 5, 3, 1, 0.5, 0])
         params.norm_layer = trial.suggest_categorical("norm_layer", ["group", "batch"])
         params.num_groups = trial.suggest_categorical("num_groups", [1, 8, 16, 32, 64, 2048, 0])
         params.scale_norm = trial.suggest_categorical("scale_norm", [True, False])
@@ -115,7 +116,8 @@ def main():
         criterion = smp.losses.DiceLoss(mode="binary")
         optimizer = params.optimizer(model.parameters(), lr=params.learning_rate)
         # optimizer = torch.optim.Adam(model.parameters(), lr=0.0005)
-        scheduler = ReduceLROnPlateau(optimizer, mode="min", patience=2, factor=0.1, verbose=True)
+        scheduler = ReduceLROnPlateau(optimizer, mode="min", patience=4, factor=0.5, verbose=True)
+        # scheduler = StepLR(optimizer, step_size=10, gamma=0.1)
 
         if params.dataset == "carvana":
             train_loader, val_loader = get_carvana_dataloaders(params)
@@ -143,15 +145,20 @@ def main():
 
         val_loss_list = []
         dice_score_list = []
-        for epoch in range(params.epochs):
-            train(train_loader, model, optimizer, criterion, params.device)
-            dice_score, loss = test(val_loader, model, criterion, params.device)
-            val_loss_list.append(loss)
-            dice_score_list.append(dice_score)  # .cpu().detach().numpy()
-            trial.report(dice_score, epoch)
-            if trial.should_prune():
-                raise TrialPruned()
-            scheduler.step(dice_score)
+        with BatchMemoryManager(
+                data_loader=train_loader,
+                max_physical_batch_size=params.max_batch_size,
+                optimizer=optimizer
+        ) as memory_safe_data_loader:
+            for epoch in range(params.epochs):
+                train(memory_safe_data_loader, model, optimizer, criterion, params.device)
+                dice_score, loss = test(val_loader, model, criterion, params.device)
+                val_loss_list.append(loss)
+                dice_score_list.append(dice_score)  # .cpu().detach().numpy()
+                trial.report(dice_score, epoch+1)
+                if trial.should_prune():
+                    raise TrialPruned()
+                scheduler.step(dice_score)
 
         params.val_loss_list = val_loss_list
         params.dice_score_list = dice_score_list
@@ -164,15 +171,15 @@ def main():
 
         return max(dice_score_list)
 
-    study_name = "liver_unet9"
+    study_name = "liver_unet9_scale_0_5"
     # study_name = "test_code"
     storage = "sqlite:///segmentation.db"
     # optuna.delete_study(study_name, storage)
     search_space = {
         "privacy": [True],  # True, False
-        "target_epsilon": [10],  # 10, 5, 3, 0
+        "target_epsilon": [0.5],  # 10, 5, 3, 1, 0.5, 0
         "norm_layer": ["group"],
-        "num_groups": [1, 8, 16, 32, 64, 2048],  # 0, 1, 8, 16, 32, 64, 2048
+        "num_groups": [8, 16, 32],  # 0, 1, 8, 16, 32, 64, 2048
         "scale_norm": [True, False],  # True, False
         "seed": [788, 374, 39],  # 788, 374, 39
     }
@@ -188,7 +195,7 @@ def main():
         pruner=optuna.pruners.NopPruner(),
         load_if_exists=True
     )
-    study.optimize(objective, n_trials=36)
+    study.optimize(objective, n_trials=18)
 
 
 if __name__ == "__main__":
