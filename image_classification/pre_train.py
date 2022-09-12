@@ -133,7 +133,7 @@ if __name__ == "__main__":
                     model,
                     optimizer,
                     criterion,
-                    train_loader,
+                    new_train_loader,
                     device,
                     epoch,
                     len(train_loader),
