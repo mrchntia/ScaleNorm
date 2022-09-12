@@ -7,7 +7,6 @@ from torch import Tensor
 
 __all__ = [
     "ResNet",
-    "resnet18",
     "resnet34",
     "resnet50",
 ]
@@ -281,13 +280,6 @@ class ResNet(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         return self._forward_impl(x)
-
-
-def resnet18(**kwargs: Any) -> ResNet:
-    r"""ResNet-18 model from
-    `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_.
-    """
-    return ResNet(BasicBlock, [2, 2, 2, 2], **kwargs)
 
 
 def resnet34(**kwargs: Any) -> ResNet:

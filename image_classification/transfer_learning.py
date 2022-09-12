@@ -10,7 +10,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from opacus import PrivacyEngine
 from opacus.utils.batch_memory_manager import BatchMemoryManager
 
-from utils import get_tiny_dataloader, get_cifar_dataloader, save_checkpoint, load_checkpoint
+from utils import get_tiny_dataloader, get_cifar_dataloader, save_checkpoint, load_checkpoint, train_one_epoch, test
 from resnet9 import ResNet9
 
 import wandb
@@ -205,107 +205,15 @@ if __name__ == "__main__":
                 optimizer=optimizer
         ) as new_train_loader:
             for epoch in range(config["epochs"]):
-                model.train()
-                for batch_idx, (data, target) in enumerate(new_train_loader):
-                    data, target = data.to(device), target.to(device)
-                    optimizer.zero_grad()
-                    output = model(data)
-                    loss = criterion(output, target)
-                    loss.backward()
-                    optimizer.step()
-                    wandb.log({"epoch": epoch, "loss": loss.item()})
-                    if batch_idx % 20 == 0:
-                        print(
-                            "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}".format(
-                                epoch,
-                                batch_idx * len(data),
-                                len(new_train_loader.dataset),
-                                100.0 * batch_idx / len(train_loader),
-                                loss.item(),
-                            )
-                        )
+                train_one_epoch(model, optimizer, criterion, new_train_loader, device, epoch, len(train_loader))
+                test(model, val_loader, device)
 
-                # lr_scheduler.step(loss)
-
-                # Test
-                model.eval()
-                test_loss = 0
-                correct = 0
-                with torch.no_grad():
-                    for data, target in val_loader:
-                        data, target = data.to(device), target.to(device)
-                        output = model(data)
-                        test_loss += torch.nn.CrossEntropyLoss(reduction="sum")(
-                            output, target
-                        ).item()  # sum up batch loss
-                        pred = output.argmax(
-                            dim=1, keepdim=True
-                        )  # get the index of the max log-probability
-                        correct += pred.eq(target.view_as(pred)).sum().item()
-
-                test_loss /= len(val_loader.dataset)
-                wandb.log({"val_loss": test_loss, "val_acc": 100.0 * correct / len(val_loader.dataset)})
-                print(
-                    "\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)".format(
-                        test_loss,
-                        correct,
-                        len(val_loader.dataset),
-                        100.0 * correct / len(val_loader.dataset),
-                    )
-                )
     else:
         for epoch in range(config["epochs"]):
-            model.train()
             for batch_idx, (data, target) in enumerate(train_loader):
-                data, target = data.to(device), target.to(device)
-                optimizer.zero_grad()
-                output = model(data)
-                loss = criterion(output, target)
-                loss.backward()
-                optimizer.step()
-                wandb.log({"epoch": epoch, "loss": loss.item()})
-                if batch_idx % 20 == 0:
-                    print(
-                        "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}".format(
-                            epoch,
-                            batch_idx * len(data),
-                            len(train_loader.dataset),
-                            100.0 * batch_idx / len(train_loader),
-                            loss.item(),
-                        )
-                    )
+                train_one_epoch(model, optimizer, criterion, train_loader, device, epoch, len(train_loader), lr_scheduler)
+                test(model, val_loader, device)
 
-            lr_scheduler.step(loss.item())
-
-            # Test
-            model.eval()
-            test_loss = 0
-            correct = 0
-            with torch.no_grad():
-                for data, target in val_loader:
-                    data, target = data.to(device), target.to(device)
-                    output = model(data)
-                    test_loss += torch.nn.CrossEntropyLoss(reduction="sum")(
-                        output, target
-                    ).item()  # sum up batch loss
-                    pred = output.argmax(
-                        dim=1, keepdim=True
-                    )  # get the index of the max log-probability
-                    correct += pred.eq(target.view_as(pred)).sum().item()
-
-            test_loss /= len(val_loader.dataset)
-            wandb.log({"val_loss": test_loss, "val_acc": 100.0 * correct / len(val_loader.dataset)})
-            print(
-                "\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)".format(
-                    test_loss,
-                    correct,
-                    len(val_loader.dataset),
-                    100.0 * correct / len(val_loader.dataset),
-                )
-            )
-
-    # save_checkpoint(model, None, filename=f"models_pluto/transfer_learning_{wandb.run.id}.pth.tar")
-    # load_checkpoint(f"models_pluto/transfer_learning_{wandb.run.id}.pth.tar", model)
     save_checkpoint(model, None, filename=f"models/transfer_learning_cifar_{wandb.run.id}.pth.tar")
     load_checkpoint(f"models/transfer_learning_cifar_{wandb.run.id}.pth.tar", model)
 

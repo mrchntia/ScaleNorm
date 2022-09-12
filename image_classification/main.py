@@ -1,4 +1,4 @@
-from typing import Dict, Callable, Tuple, Iterable
+from typing import Dict, Callable, Tuple
 import argparse
 import random
 import numpy as np
@@ -10,11 +10,10 @@ from opacus import PrivacyEngine
 from opacus.utils.batch_memory_manager import BatchMemoryManager
 import optuna
 from optuna import TrialPruned
-from poutyne import LambdaCallback, ReduceLROnPlateau, Model, OneCycleLR
+from poutyne import LambdaCallback, ReduceLROnPlateau, Model
 
 from resnet9 import ResNet9
-from resnet_pytorch import resnet50, resnet18
-# from torchvision.models import resnet18
+from resnet_pytorch import resnet50
 from utils import get_cifar_dataloader, get_imagenette_dataloader, save_checkpoint, load_checkpoint, get_tiny_dataloader
 from utils import RepeatPruner, MultiplePruners
 
@@ -140,12 +139,6 @@ if __name__ == "__main__":
                 params.norm_layer,
                 params.num_groups
             ).to(params.device)
-        if params.model_arch == "resnet18":
-            model = resnet18(
-                # num_groups=params.num_groups,
-                # scale_norm=params.scale_norm,
-                num_classes=params.num_classes
-            ).to(params.device)
         if params.model_arch == "resnet50":
             model = resnet50(
                 num_groups=params.num_groups,
@@ -153,9 +146,7 @@ if __name__ == "__main__":
                 num_classes=params.num_classes,
                 act_func=params.act_func
             ).to(params.device)
-        # print(model)
         # total_params = sum(p.numel() for p in model.parameters())
-        # print(total_params)
         if params.dataset == "cifar":
             train_loader, val_loader = get_cifar_dataloader(bs_train=params.batch_size, bs_val=params.max_batch_size)
         elif params.dataset == "imagenette":
@@ -173,7 +164,6 @@ if __name__ == "__main__":
 
         criterion = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.NAdam(model.parameters(), params.learning_rate)
-        # optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
 
         if params.privacy:
             privacy_engine = PrivacyEngine()
@@ -228,16 +218,11 @@ if __name__ == "__main__":
         if params.privacy:
             params.final_epsilon, _ = privacy_engine.accountant.get_privacy_spent(delta=params.target_delta)
 
-        # save_checkpoint(model, params, filename=f"models_pluto/{study_name}_{trial.number}.pth.tar")
-        # load_checkpoint(f"models_pluto/{study_name}_{trial.number}.pth.tar", model)
         save_checkpoint(model, params, filename=f"models/{study_name}_{trial.number}.pth.tar")
         load_checkpoint(f"models/{study_name}_{trial.number}.pth.tar", model)
 
         return max([d["val_acc"] for d in history])
 
-    # study_name = "test_code"
-    # study_name = "no-dp"
-    # storage = "sqlite:///plutoscaleresnet.db"
     study_name = "cifar_epochs"
     storage = "sqlite:///scaleresnet.db"
 

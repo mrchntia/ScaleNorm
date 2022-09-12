@@ -3,8 +3,14 @@ import warnings
 
 
 def conv_bn_act(
-    in_channels, out_channels, pool=False, act_func=nn.Mish, num_groups=None
+        in_channels: int,
+        out_channels: int,
+        pool: bool = False,
+        act_func: nn.Module = nn.Mish,
+        num_groups: int = None
 ):
+    """Conv-BatchNorm-Activation
+    """
     if num_groups is not None:
         warnings.warn("num_groups has no effect with BatchNorm")
     layers = [
@@ -17,7 +23,13 @@ def conv_bn_act(
     return nn.Sequential(*layers)
 
 
-def conv_gn_act(in_channels, out_channels, pool=False, act_func=nn.Mish, num_groups=32):
+def conv_gn_act(
+        in_channels: int,
+        out_channels: int,
+        pool: bool = False,
+        act_func: nn.Module = nn.Mish,
+        num_groups: int = 32
+):
     """Conv-GroupNorm-Activation
     """
     layers = [
@@ -47,7 +59,8 @@ class ResNet9(nn.Module):
             in_channels (int, optional): Channels in the input image. Defaults to 3.
             num_classes (int, optional): Number of classes. Defaults to 10.
             act_func (nn.Module, optional): Activation function to use. Defaults to nn.Mish.
-            scale_norm (bool, optional): Whether to add an extra normalisation layer after each residual block. Defaults to False.
+            scale_norm (bool, optional): Whether to add an extra normalisation layer after each residual block. \
+            Defaults to False.
             norm_layer (str, optional): Normalisation layer. One of `batch` or `group`. Defaults to "batch".
             num_groups (tuple[int], optional): Number of groups in GroupNorm layers.\
             Must be a tuple with 4 elements, corresponding to the GN layer in the first conv block, \

@@ -13,13 +13,13 @@ from poutyne import Model, ReduceLROnPlateau, LambdaCallback
 
 from utils import get_cifar_dataloader, get_imagenette_dataloader
 from resnet9 import ResNet9
-from resnet_pytorch import resnet18, resnet50
+from resnet_pytorch import resnet50
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, default='cifar', choices=['cifar', 'imagenette'])
-    parser.add_argument('--model-arch', type=str, default='resnet9', choices=['resnet9', 'resnet18', 'resnet50'])
+    parser.add_argument('--model-arch', type=str, default='resnet9', choices=['resnet9', 'resnet50'])
     parser.add_argument('--target-epsilon', type=float, default=7.62)
     parser.add_argument('--privacy', type=bool, action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument('--scale-norm', type=bool, action=argparse.BooleanOptionalAction, default=False)
@@ -73,8 +73,8 @@ if __name__ == "__main__":
             "res2",
             "scale_norm_2"
         ]
-    elif args.model_arch == 'resnet18':
-        model = resnet18(num_groups=[32, 32, 32, 32], scale_norm=args.scale_norm).to(device)
+    elif args.model_arch == 'resnet50':
+        model = resnet50(num_groups=[32, 32, 32, 32], scale_norm=args.scale_norm).to(device)
         modules_to_visualize = [model.gn2, model.res1, model.scale_norm_1, model.conv4, model.res2,
                                 model.scale_norm_2]
         plots_titles = [
@@ -132,11 +132,12 @@ if __name__ == "__main__":
         fig.add_subplot(rows, columns, i+1)
         pickle.dump(
             visualisation[modules_to_visualize[i]],
-            open("histograms/{}_{}_{}_s{}_p{}_resnet9_{}.p".format(
+            open("histograms/{}_{}_s{}_p{}_{}_{}.p".format(
                 args.dataset,
                 args.norm_layer,
                 args.scale_norm,
                 args.privacy,
+                args.model_arch,
                 plots_titles[i]
             ), "wb")
         )
@@ -147,13 +148,14 @@ if __name__ == "__main__":
         )
         plt.title("{}".format(plots_titles[i]))
     fig.gca().autoscale()
-    plt.savefig('histograms/{}_resnet9_{}_{}_{}_s{}_p{}.png'.format(
+    plt.savefig('histograms/{}_{}_{}_s{}_p{}_{}_{}.png'.format(
         datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
         args.dataset,
-        args.epochs,
         args.norm_layer,
         args.scale_norm,
-        args.privacy
+        args.privacy,
+        args.model_arch,
+        args.epochs
     ))
     plt.close(fig)
     print("Plot saved")

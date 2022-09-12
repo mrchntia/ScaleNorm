@@ -8,7 +8,7 @@ import torch
 from opacus import PrivacyEngine
 from opacus.utils.batch_memory_manager import BatchMemoryManager
 
-from utils import get_cifar_dataloader, get_imagenette_dataloader, get_tiny_dataloader
+from utils import get_cifar_dataloader, get_imagenette_dataloader, get_tiny_dataloader, test
 from resnet9 import ResNet9
 
 import wandb
@@ -78,7 +78,6 @@ if __name__ == "__main__":
             "Please specify a valid dataset."
         )
 
-    # device = torch.device("cuda:1")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = ResNet9(3, num_classes=num_classes, scale_norm=config["scale_norm"], norm_layer=config["norm_layer"],
@@ -91,7 +90,7 @@ if __name__ == "__main__":
 
     def hook_fn(module, input, output):
         if log_count % log_freq == 0 and not val:
-            wandb.log({f"activation_{layers_names[module]}": output})  # np.transpose(torch.flatten(output.cpu()).detach().numpy())
+            wandb.log({f"activation_{layers_names[module]}": output})
 
     def get_all_layers(model):
         for name, layer in model._modules.items():
@@ -152,30 +151,6 @@ if __name__ == "__main__":
                         )
 
                 # Test
-                model.eval()
                 val = True
-                test_loss = 0
-                correct = 0
-                with torch.no_grad():
-                    for data, target in val_loader:
-                        data, target = data.to(device), target.to(device)
-                        output = model(data)
-                        test_loss += torch.nn.CrossEntropyLoss(reduction="sum")(
-                            output, target
-                        ).item()  # sum up batch loss
-                        pred = output.argmax(
-                            dim=1, keepdim=True
-                        )  # get the index of the max log-probability
-                        correct += pred.eq(target.view_as(pred)).sum().item()
-
-                test_loss /= len(val_loader.dataset)
-                wandb.log({"val_loss": test_loss, "val_acc": 100.0 * correct / len(val_loader.dataset)})
-                print(
-                    "\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)".format(
-                        test_loss,
-                        correct,
-                        len(val_loader.dataset),
-                        100.0 * correct / len(val_loader.dataset),
-                    )
-                )
+                test(model, val_loader, device)
                 val = False
