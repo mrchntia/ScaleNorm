@@ -1,10 +1,13 @@
+from typing import Tuple, Callable
 import os
 import subprocess
 from typing import Iterable
 
 import torch
 import torchvision
+import torch.nn as nn
 from torch.utils.data import DataLoader
+from torch.optim import Optimizer
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 
@@ -79,8 +82,13 @@ def load_checkpoint(file_path, model=None):
             print(f"{key}: {checkpoint[key]}")
 
 
-def get_cifar_dataloader(bs_train=256, bs_val=256, classes=10, mean=(0.4914, 0.4822, 0.4465),
-                         std=(0.2471, 0.2435, 0.2616)):
+def get_cifar_dataloader(
+        bs_train: int = 256,
+        bs_val: int = 256,
+        classes: int = 10,
+        mean: Tuple[float, float, float] = (0.4914, 0.4822, 0.4465),
+        std: Tuple[float, float, float] = (0.2471, 0.2435, 0.2616)
+):
     transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize(mean, std),
@@ -135,7 +143,13 @@ def get_cifar_dataloader(bs_train=256, bs_val=256, classes=10, mean=(0.4914, 0.4
     return train_loader, val_loader
 
 
-def get_imagenette_dataloader(bs_train=64, bs_val=64, image_size=224):
+def get_imagenette_dataloader(
+        bs_train: int = 64,
+        bs_val: int = 64,
+        image_size: int = 224,
+        mean: Tuple[float, float, float] = (0.485, 0.456, 0.406),  # changed from List to Tuple
+        std: Tuple[float, float, float] = (0.229, 0.224, 0.225)
+):
     if not os.path.exists('./data/imagenette2-160/train'):
         print("path not existing")
         subprocess.run('wget -P ./data/ https://s3.amazonaws.com/fast-ai-imageclas/imagenette2-320.tgz', shell=True)
@@ -143,8 +157,7 @@ def get_imagenette_dataloader(bs_train=64, bs_val=64, image_size=224):
     else:
         print("Dataset already downloaded.")
 
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
+    normalize = transforms.Normalize(mean=mean, std=std)
 
     train_ds = datasets.ImageFolder(
         './data/imagenette2-160/train',
@@ -187,7 +200,12 @@ def get_imagenette_dataloader(bs_train=64, bs_val=64, image_size=224):
     return train_loader, val_loader
 
 
-def get_tiny_dataloader(bs_train=64, bs_val=64):
+def get_tiny_dataloader(
+        bs_train: int = 64,
+        bs_val: int = 64,
+        mean: Tuple[float, float, float] = (0.4914, 0.4822, 0.4465),
+        std: Tuple[float, float, float] = (0.2023, 0.1994, 0.2010)
+):
     train_dir = "./data/tiny-imagenet-200/train"
     val_dir = "./data/tiny-imagenet-200/val"
     if not os.path.exists(train_dir):
@@ -215,8 +233,6 @@ def get_tiny_dataloader(bs_train=64, bs_val=64):
                 os.rename(os.path.join(val_img_dir, img), os.path.join(new_path, img))
         print("reorganizing val folder done")
 
-    mean = (0.4914, 0.4822, 0.4465)
-    std = (0.2023, 0.1994, 0.2010)
     normalize = transforms.Normalize(mean, std)
 
     train_ds = datasets.ImageFolder(
@@ -262,7 +278,16 @@ def get_tiny_dataloader(bs_train=64, bs_val=64):
     return train_loader, val_loader
 
 
-def train_one_epoch(model, optimizer, criterion, train_loader, device, epoch, epoch_len, lr_scheduler=None):
+def train_one_epoch(
+        model: nn.Module,
+        optimizer: Optimizer,
+        criterion: Callable,
+        train_loader: DataLoader,
+        device: torch.device,
+        epoch: int,
+        epoch_len: int,
+        lr_scheduler: Callable = None
+):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
@@ -286,7 +311,7 @@ def train_one_epoch(model, optimizer, criterion, train_loader, device, epoch, ep
             lr_scheduler.step(loss.item())
 
 
-def test(model, val_loader, device):
+def test(model: nn.Module, val_loader: DataLoader, device: torch.device):
     model.eval()
     test_loss = 0
     correct = 0
