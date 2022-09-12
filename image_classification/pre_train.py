@@ -3,14 +3,11 @@ import random
 import warnings
 
 import numpy as np
-import poutyne
 
 import torch
-import torch.nn as nn
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from opacus import PrivacyEngine
 from opacus.utils.batch_memory_manager import BatchMemoryManager
-from poutyne import Model
 
 from utils import get_tiny_dataloader, get_cifar_dataloader, save_checkpoint, load_checkpoint, train_one_epoch, test
 from resnet9 import ResNet9
