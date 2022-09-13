@@ -12,7 +12,7 @@ def conv_bn_act(
     """Conv-BatchNorm-Activation
     """
     if num_groups is not None:
-        warnings.warn("num_groups has no effect with BatchNorm")
+        warnings.warn('num_groups has no effect with BatchNorm')
     layers = [
         nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1, bias=False),
         nn.BatchNorm2d(out_channels),
@@ -49,7 +49,7 @@ class ResNet9(nn.Module):
         num_classes: int = 10,
         act_func: nn.Module = nn.Mish,
         scale_norm: bool = False,
-        norm_layer: str = "batch",
+        norm_layer: str = 'batch',
         num_groups: tuple[int, ...] = (32, 32, 32, 32),
     ):
         """9-layer Residual Network. Architecture:
@@ -68,16 +68,16 @@ class ResNet9(nn.Module):
         """
         super().__init__()
 
-        if norm_layer == "batch":
+        if norm_layer == 'batch':
             conv_block = conv_bn_act
-        elif norm_layer == "group":
+        elif norm_layer == 'group':
             conv_block = conv_gn_act
         else:
-            raise ValueError("`norm_layer` must be `batch` or `group`")
+            raise ValueError('`norm_layer` must be `batch` or `group`')
 
         assert (
             isinstance(num_groups, tuple) and len(num_groups) == 4
-        ), "num_groups must be a tuple with 4 members"
+        ), 'num_groups must be a tuple with 4 members'
         groups = num_groups
 
         self.conv1 = conv_block(
@@ -115,12 +115,12 @@ class ResNet9(nn.Module):
         if scale_norm:
             self.scale_norm_1 = (
                 nn.BatchNorm2d(128)
-                if norm_layer == "batch"
+                if norm_layer == 'batch'
                 else nn.GroupNorm(min(num_groups[1], 128), 128)
             )  # type:ignore
             self.scale_norm_2 = (
                 nn.BatchNorm2d(256)
-                if norm_layer == "batch"
+                if norm_layer == 'batch'
                 else nn.GroupNorm(min(groups[3], 256), 256)
             )  # type:ignore
         else:
@@ -149,7 +149,7 @@ class ResNet9LRF(nn.Module):
         num_classes: int = 10,
         act_func: nn.Module = nn.Mish,
         scale_norm: bool = False,
-        norm_layer: str = "batch",
+        norm_layer: str = 'batch',
         num_groups: tuple[int, ...] = (32, 32, 32, 32),
     ):
         """9-layer Residual Network. Architecture:
@@ -169,16 +169,16 @@ class ResNet9LRF(nn.Module):
         """
         super().__init__()
 
-        if norm_layer == "batch":
+        if norm_layer == 'batch':
             conv_block = conv_bn_act
-        elif norm_layer == "group":
+        elif norm_layer == 'group':
             conv_block = conv_gn_act
         else:
-            raise ValueError("`norm_layer` must be `batch` or `group`")
+            raise ValueError('`norm_layer` must be `batch` or `group`')
 
         assert (
             isinstance(num_groups, tuple) and len(num_groups) == 4
-        ), "num_groups must be a tuple with 4 members"
+        ), 'num_groups must be a tuple with 4 members'
         groups = num_groups
 
         self.conv1 = conv_block(
@@ -228,12 +228,12 @@ class ResNet9LRF(nn.Module):
         if scale_norm:
             self.scale_norm_1 = (
                 nn.BatchNorm2d(128)
-                if norm_layer == "batch"
+                if norm_layer == 'batch'
                 else nn.GroupNorm(min(groups[1], 128), 128)
             )  # type:ignore
             self.scale_norm_2 = (
                 nn.BatchNorm2d(256)
-                if norm_layer == "batch"
+                if norm_layer == 'batch'
                 else nn.GroupNorm(min(groups[3], 256), 256)
             )  # type:ignore
         else:

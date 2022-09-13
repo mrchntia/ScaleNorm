@@ -19,18 +19,18 @@ class MultiplePruners(optuna.pruners.BasePruner):
     def __init__(
             self,
             pruners: Iterable[optuna.pruners.BasePruner],
-            pruning_condition: str = "any",
+            pruning_condition: str = 'any',
     ) -> None:
 
         self._pruners = tuple(pruners)
 
         self._pruning_condition_check_fn = None
-        if pruning_condition == "any":
+        if pruning_condition == 'any':
             self._pruning_condition_check_fn = any
-        elif pruning_condition == "all":
+        elif pruning_condition == 'all':
             self._pruning_condition_check_fn = all
         else:
-            raise ValueError(f"Invalid pruning ({pruning_condition}) condition passed!")
+            raise ValueError(f'Invalid pruning ({pruning_condition}) condition passed!')
         assert self._pruning_condition_check_fn is not None
 
     def prune(
@@ -59,10 +59,10 @@ class RepeatPruner(optuna.pruners.BasePruner):
         return False
 
 
-def save_checkpoint(model, params, filename="my_checkpoint.pth.tar"):
-    print("=> Saving checkpoint")
+def save_checkpoint(model, params, filename='my_checkpoint.pth.tar'):
+    print('=> Saving checkpoint')
     state = {
-        "state_dict": model.state_dict(),
+        'state_dict': model.state_dict(),
     }
     if params is not None:
         for param in dir(params):
@@ -72,14 +72,14 @@ def save_checkpoint(model, params, filename="my_checkpoint.pth.tar"):
 
 
 def load_checkpoint(file_path, model=None):
-    print("=> Loading checkpoint")
+    print('=> Loading checkpoint')
     checkpoint = torch.load(file_path)
     if model is not None:
-        model.load_state_dict(checkpoint["state_dict"])
-    print("Parameters used for training")
+        model.load_state_dict(checkpoint['state_dict'])
+    print('Parameters used for training')
     for key in checkpoint:
-        if key not in ["state_dict", "optimizer"]:
-            print(f"{key}: {checkpoint[key]}")
+        if key not in ['state_dict', 'optimizer']:
+            print(f'{key}: {checkpoint[key]}')
 
 
 def get_cifar_dataloader(
@@ -151,11 +151,11 @@ def get_imagenette_dataloader(
         std: Tuple[float, float, float] = (0.229, 0.224, 0.225)
 ):
     if not os.path.exists('./data/imagenette2-160/train'):
-        print("path not existing")
+        print('path not existing')
         subprocess.run('wget -P ./data/ https://s3.amazonaws.com/fast-ai-imageclas/imagenette2-320.tgz', shell=True)
         subprocess.run('tar -xf ./data/imagenette2-320.tgz -C ./data/', shell=True)
     else:
-        print("Dataset already downloaded.")
+        print('Dataset already downloaded.')
 
     normalize = transforms.Normalize(mean=mean, std=std)
 
@@ -206,14 +206,14 @@ def get_tiny_dataloader(
         mean: Tuple[float, float, float] = (0.4914, 0.4822, 0.4465),
         std: Tuple[float, float, float] = (0.2023, 0.1994, 0.2010)
 ):
-    train_dir = "./data/tiny-imagenet-200/train"
-    val_dir = "./data/tiny-imagenet-200/val"
+    train_dir = './data/tiny-imagenet-200/train'
+    val_dir = './data/tiny-imagenet-200/val'
     if not os.path.exists(train_dir):
-        subprocess.run("wget http://cs231n.stanford.edu/tiny-imagenet-200.zip", shell=True)
+        subprocess.run('wget http://cs231n.stanford.edu/tiny-imagenet-200.zip', shell=True)
         subprocess.run("unzip -qq 'tiny-imagenet-200.zip'", shell=True)
-        print("download done")
+        print('download done')
     else:
-        print("Dataset already downloaded.")
+        print('Dataset already downloaded.')
 
     val_img_dir = os.path.join(val_dir, 'images')
     if len(os.listdir(val_img_dir)) != 200:
@@ -231,7 +231,7 @@ def get_tiny_dataloader(
                 os.makedirs(new_path)
             if os.path.exists(os.path.join(val_img_dir, img)):
                 os.rename(os.path.join(val_img_dir, img), os.path.join(new_path, img))
-        print("reorganizing val folder done")
+        print('reorganizing val folder done')
 
     normalize = transforms.Normalize(mean, std)
 
@@ -296,10 +296,10 @@ def train_one_epoch(
         loss = criterion(output, target)
         loss.backward()
         optimizer.step()
-        wandb.log({"epoch": epoch, "loss": loss.item()})
+        wandb.log({'epoch': epoch, 'loss': loss.item()})
         if batch_idx % 20 == 0:
             print(
-                "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}".format(
+                'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                     epoch,
                     batch_idx * len(data),
                     len(train_loader.dataset),
@@ -319,7 +319,7 @@ def test(model: nn.Module, val_loader: DataLoader, device: torch.device):
         for data, target in val_loader:
             data, target = data.to(device), target.to(device)
             output = model(data)
-            test_loss += torch.nn.CrossEntropyLoss(reduction="sum")(
+            test_loss += torch.nn.CrossEntropyLoss(reduction='sum')(
                 output, target
             ).item()  # sum up batch loss
             pred = output.argmax(
@@ -328,9 +328,9 @@ def test(model: nn.Module, val_loader: DataLoader, device: torch.device):
             correct += pred.eq(target.view_as(pred)).sum().item()
 
     test_loss /= len(val_loader.dataset)
-    wandb.log({"val_loss": test_loss, "val_acc": 100.0 * correct / len(val_loader.dataset)})
+    wandb.log({'val_loss': test_loss, 'val_acc': 100.0 * correct / len(val_loader.dataset)})
     print(
-        "\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)".format(
+        '\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)'.format(
             test_loss,
             correct,
             len(val_loader.dataset),

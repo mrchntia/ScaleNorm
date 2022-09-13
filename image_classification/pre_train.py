@@ -26,8 +26,8 @@ def parse_args():
     return parser.parse_args()
 
 
-if __name__ == "__main__":
-    warnings.filterwarnings("ignore")
+if __name__ == '__main__':
+    warnings.filterwarnings('ignore')
 
     SEED = 34
     torch.backends.cudnn.deterministic = True
@@ -42,7 +42,7 @@ if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     config = dict(
-        architecture="ResNet9",
+        architecture='ResNet9',
         seed=SEED,
         epochs=args.epochs,
         dataset=args.dataset,
@@ -55,38 +55,38 @@ if __name__ == "__main__":
         learning_rate=0.001,
         max_grad_norm=1.5,
         target_delta=1e-5,
-        scheduler="ReduceLROnPlateau(patience=2, factor=0.5)",
+        scheduler='ReduceLROnPlateau(patience=2, factor=0.5)',
         act_func=torch.nn.Mish
     )
 
     wandb.init(
-        project="transfer-learning-cifar",
-        entity="mrchntia",
-        notes="analyze training of ResNet with and without ScaleNorm layers",
+        project='transfer-learning-cifar',
+        entity='mrchntia',
+        notes='analyze training of ResNet with and without ScaleNorm layers',
         config=config,
     )
 
     log_freq = 1000
 
-    if config["dataset"] == 'tiny':
+    if config['dataset'] == 'tiny':
         num_classes = 200
         max_batch_size = 64
-        train_loader, val_loader = get_tiny_dataloader(bs_train=config["batch_size"], bs_val=max_batch_size)
-    elif config["dataset"] == 'cifar10':
+        train_loader, val_loader = get_tiny_dataloader(bs_train=config['batch_size'], bs_val=max_batch_size)
+    elif config['dataset'] == 'cifar10':
         num_classes = 10
         max_batch_size = 521
         train_loader, val_loader = get_cifar_dataloader(
-            bs_train=config["batch_size"],
+            bs_train=config['batch_size'],
             bs_val=max_batch_size,
             classes=num_classes,
             mean=(0.5, 0.5, 0.5),
             std=(0.5, 0.5, 0.5)
         )
-    elif config["dataset"] == 'cifar100':
+    elif config['dataset'] == 'cifar100':
         num_classes = 100
         max_batch_size = 521
         train_loader, val_loader = get_cifar_dataloader(
-            bs_train=config["batch_size"],
+            bs_train=config['batch_size'],
             bs_val=max_batch_size,
             classes=num_classes,
             mean=(0.5, 0.5, 0.5),
@@ -96,39 +96,39 @@ if __name__ == "__main__":
     model = ResNet9(
         3,
         num_classes=num_classes,
-        act_func=config["act_func"],
-        scale_norm=config["scale_norm"],
-        norm_layer=config["norm_layer"],
-        num_groups=config["num_groups"]
+        act_func=config['act_func'],
+        scale_norm=config['scale_norm'],
+        norm_layer=config['norm_layer'],
+        num_groups=config['num_groups']
     ).to(device)
 
-    optimizer = torch.optim.NAdam(model.parameters(), lr=config["learning_rate"])
+    optimizer = torch.optim.NAdam(model.parameters(), lr=config['learning_rate'])
     criterion = torch.nn.CrossEntropyLoss()
 
-    if config["privacy"]:
+    if config['privacy']:
         privacy_engine = PrivacyEngine()
         model, optimizer, train_loader = privacy_engine.make_private_with_epsilon(
             module=model,
             optimizer=optimizer,
             data_loader=train_loader,
-            target_delta=config["target_delta"],
-            target_epsilon=config["target_epsilon"],
-            max_grad_norm=config["max_grad_norm"],
-            epochs=config["epochs"],
+            target_delta=config['target_delta'],
+            target_epsilon=config['target_epsilon'],
+            max_grad_norm=config['max_grad_norm'],
+            epochs=config['epochs'],
         )
-        print("privacy")
+        print('privacy')
 
-    wandb.watch(model, criterion, log="all", log_freq=log_freq)
-    lr_scheduler = ReduceLROnPlateau(optimizer, mode="min", patience=2, factor=0.5, verbose=True)
+    wandb.watch(model, criterion, log='all', log_freq=log_freq)
+    lr_scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=2, factor=0.5, verbose=True)
 
     # Train
-    if config["privacy"]:
+    if config['privacy']:
         with BatchMemoryManager(
                 data_loader=train_loader,
                 max_physical_batch_size=max_batch_size,
                 optimizer=optimizer
         ) as new_train_loader:
-            for epoch in range(config["epochs"]):
+            for epoch in range(config['epochs']):
                 train_one_epoch(
                     model,
                     optimizer,
@@ -142,10 +142,10 @@ if __name__ == "__main__":
                 test(model, val_loader, device)
 
     else:
-        for epoch in range(config["epochs"]):
+        for epoch in range(config['epochs']):
             train_one_epoch(model, optimizer, criterion, train_loader, device, epoch, len(train_loader), lr_scheduler)
             test(model, val_loader, device)
 
-    save_checkpoint(model, None, filename=f"models/transfer_learning_cifar_{wandb.run.id}.pth.tar")
-    load_checkpoint(f"models/transfer_learning_cifar_{wandb.run.id}.pth.tar", model)
+    save_checkpoint(model, None, filename=f'models/transfer_learning_cifar_{wandb.run.id}.pth.tar')
+    load_checkpoint(f'models/transfer_learning_cifar_{wandb.run.id}.pth.tar', model)
 

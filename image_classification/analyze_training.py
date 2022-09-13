@@ -25,8 +25,8 @@ def parse_args():
     return parser.parse_args()
 
 
-if __name__ == "__main__":
-    warnings.filterwarnings("ignore")
+if __name__ == '__main__':
+    warnings.filterwarnings('ignore')
 
     SEED = 34
     torch.backends.cudnn.deterministic = True
@@ -39,7 +39,7 @@ if __name__ == "__main__":
     args = parse_args()
 
     config = dict(
-        architecture="ResNet9",
+        architecture='ResNet9',
         seed=SEED,
         epochs=args.epochs,
         dataset=args.dataset,
@@ -55,33 +55,33 @@ if __name__ == "__main__":
     )
 
     wandb.init(
-        project="analyze-scale-norm",
-        entity="mrchntia",
-        notes="analyze training of ResNet with and without ScaleNorm layers",
+        project='analyze-scale-norm',
+        entity='mrchntia',
+        notes='analyze training of ResNet with and without ScaleNorm layers',
         config=config,
     )
 
-    if config["dataset"] == 'cifar':
+    if config['dataset'] == 'cifar':
         num_classes = 10
         max_batch_size = 256
-        train_loader, val_loader = get_cifar_dataloader(bs_train=config["batch_size"], bs_val=max_batch_size)
-    elif config["dataset"] == 'imagenette':
+        train_loader, val_loader = get_cifar_dataloader(bs_train=config['batch_size'], bs_val=max_batch_size)
+    elif config['dataset'] == 'imagenette':
         num_classes = 10
         max_batch_size = 32
-        train_loader, val_loader = get_imagenette_dataloader(bs_train=config["batch_size"], bs_val=max_batch_size)
-    elif config["dataset"] == 'tiny':
+        train_loader, val_loader = get_imagenette_dataloader(bs_train=config['batch_size'], bs_val=max_batch_size)
+    elif config['dataset'] == 'tiny':
         num_classes = 200
         max_batch_size = 512
-        train_loader, val_loader = get_tiny_dataloader(bs_train=config["batch_size"], bs_val=max_batch_size)
+        train_loader, val_loader = get_tiny_dataloader(bs_train=config['batch_size'], bs_val=max_batch_size)
     else:
         raise ValueError(
-            "Please specify a valid dataset."
+            'Please specify a valid dataset.'
         )
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    model = ResNet9(3, num_classes=num_classes, scale_norm=config["scale_norm"], norm_layer=config["norm_layer"],
-                    num_groups=config["num_groups"]).to(device)
+    model = ResNet9(3, num_classes=num_classes, scale_norm=config['scale_norm'], norm_layer=config['norm_layer'],
+                    num_groups=config['num_groups']).to(device)
 
     layers_names = {}
     log_count = 0
@@ -90,29 +90,29 @@ if __name__ == "__main__":
 
     def hook_fn(module, input, output):
         if log_count % log_freq == 0 and not val:
-            wandb.log({f"activation_{layers_names[module]}": output})
+            wandb.log({f'activation_{layers_names[module]}': output})
 
     def get_all_layers(model):
         for name, layer in model._modules.items():
-            if name not in ["FlatFeats", "MP", "classifier"]:
+            if name not in ['FlatFeats', 'MP', 'classifier']:
                 layers_names[layer] = name
                 layer.register_forward_hook(hook_fn)
 
 
     get_all_layers(model)
 
-    optimizer = torch.optim.NAdam(model.parameters(), lr=config["learning_rate"])
+    optimizer = torch.optim.NAdam(model.parameters(), lr=config['learning_rate'])
 
-    if config["privacy"]:
+    if config['privacy']:
         privacy_engine = PrivacyEngine()
         model, optimizer, train_loader = privacy_engine.make_private_with_epsilon(
             module=model,
             optimizer=optimizer,
             data_loader=train_loader,
-            target_delta=config["target_delta"],
-            target_epsilon=config["target_epsilon"],
-            max_grad_norm=config["max_grad_norm"],
-            epochs=config["epochs"],
+            target_delta=config['target_delta'],
+            target_epsilon=config['target_epsilon'],
+            max_grad_norm=config['max_grad_norm'],
+            epochs=config['epochs'],
         )
     criterion = torch.nn.CrossEntropyLoss()
 
@@ -120,15 +120,15 @@ if __name__ == "__main__":
     # for name, layer in model._modules.items():
     #     modules_log.append(layer)
 
-    wandb.watch(model, criterion, log="all", log_freq=log_freq)
+    wandb.watch(model, criterion, log='all', log_freq=log_freq)
     # Train
-    if config["privacy"]:
+    if config['privacy']:
         with BatchMemoryManager(
                 data_loader=train_loader,
                 max_physical_batch_size=max_batch_size,
                 optimizer=optimizer
         ) as new_train_loader:
-            for epoch in range(config["epochs"]):
+            for epoch in range(config['epochs']):
                 model.train()
                 for batch_idx, (data, target) in enumerate(new_train_loader):
                     log_count += 1
@@ -138,10 +138,10 @@ if __name__ == "__main__":
                     loss = criterion(output, target)
                     loss.backward()
                     optimizer.step()
-                    wandb.log({"epoch": epoch, "loss": loss.item()})
+                    wandb.log({'epoch': epoch, 'loss': loss.item()})
                     if batch_idx % 20 == 0:
                         print(
-                            "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}".format(
+                            'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                                 epoch,
                                 batch_idx * len(data),
                                 len(train_loader.dataset),

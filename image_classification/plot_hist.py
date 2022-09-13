@@ -37,8 +37,8 @@ def get_all_layers(model):
         layer.register_forward_hook(hook_fn)
 
 
-if __name__ == "__main__":
-    warnings.filterwarnings("ignore")
+if __name__ == '__main__':
+    warnings.filterwarnings('ignore')
 
     SEED = 1302
     torch.backends.cudnn.deterministic = True
@@ -59,35 +59,35 @@ if __name__ == "__main__":
             "Please specify a valid dataset. ('cifar', 'imagenette')"
         )
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     if args.model_arch == 'resnet9':
         model = ResNet9(3, 10, scale_norm=args.scale_norm, norm_layer=args.norm_layer, num_groups=(32, 32, 32, 32)
                         ).to(device)
         modules_to_visualize = [model.conv2, model.res1, model.scale_norm_1, model.conv4, model.res2,
                                 model.scale_norm_2]
         plots_titles = [
-            "conv2",
-            "res1",
-            "scale_norm_1",
-            "conv4",
-            "res2",
-            "scale_norm_2"
+            'conv2',
+            'res1',
+            'scale_norm_1',
+            'conv4',
+            'res2',
+            'scale_norm_2'
         ]
     elif args.model_arch == 'resnet50':
         model = resnet50(num_groups=[32, 32, 32, 32], scale_norm=args.scale_norm).to(device)
         modules_to_visualize = [model.gn2, model.res1, model.scale_norm_1, model.conv4, model.res2,
                                 model.scale_norm_2]
         plots_titles = [
-            "conv2",
-            "res1",
-            "scale_norm_1",
-            "conv4",
-            "res2",
-            "scale_norm_2"
+            'conv2',
+            'res1',
+            'scale_norm_1',
+            'conv4',
+            'res2',
+            'scale_norm_2'
         ]
     else:
         raise ValueError(
-            "Please specify a valid model architecture."
+            'Please specify a valid model architecture.'
         )
 
     for name, module in model.named_modules():
@@ -99,12 +99,12 @@ if __name__ == "__main__":
     visualisation = {}
     modules_to_visualize = [model.conv2, model.res1, model.scale_norm_1, model.conv4, model.res2, model.scale_norm_2]
     plots_titles = [
-        "conv2",
-        "res1",
-        "scale_norm_1",
-        "conv4",
-        "res2",
-        "scale_norm_2"
+        'conv2',
+        'res1',
+        'scale_norm_1',
+        'conv4',
+        'res2',
+        'scale_norm_2'
     ]
     get_all_layers(model)
 
@@ -120,36 +120,36 @@ if __name__ == "__main__":
             epochs=args.epochs,
         )
 
-    learner = Model(model, optimizer, criterion, batch_metrics=["acc"], device=device)
+    learner = Model(model, optimizer, criterion, batch_metrics=['acc'], device=device)
     history = learner.fit_generator(train_loader, val_loader, epochs=args.epochs)
 
     rows = 2
     columns = 3
     fig = plt.figure(figsize=(columns * 6, rows * 4))
-    fig.suptitle("test_title", fontsize=16)
+    fig.suptitle('test_title', fontsize=16)
 
     for i in range(len(modules_to_visualize)):
         fig.add_subplot(rows, columns, i+1)
         pickle.dump(
             visualisation[modules_to_visualize[i]],
-            open("histograms/{}_{}_s{}_p{}_{}_{}.p".format(
+            open('histograms/{}_{}_s{}_p{}_{}_{}.p'.format(
                 args.dataset,
                 args.norm_layer,
                 args.scale_norm,
                 args.privacy,
                 args.model_arch,
                 plots_titles[i]
-            ), "wb")
+            ), 'wb')
         )
         plt.hist(
             visualisation[modules_to_visualize[i]],
             bins=50,
             range=(-2, 6)
         )
-        plt.title("{}".format(plots_titles[i]))
+        plt.title('{}'.format(plots_titles[i]))
     fig.gca().autoscale()
     plt.savefig('histograms/{}_{}_{}_s{}_p{}_{}_{}.png'.format(
-        datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
+        datetime.now().strftime('%Y-%m-%d_%H-%M-%S'),
         args.dataset,
         args.norm_layer,
         args.scale_norm,
@@ -158,5 +158,5 @@ if __name__ == "__main__":
         args.epochs
     ))
     plt.close(fig)
-    print("Plot saved")
-    print(max([d["val_acc"] for d in history]))
+    print('Plot saved')
+    print(max([d['val_acc'] for d in history]))

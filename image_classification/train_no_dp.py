@@ -13,14 +13,14 @@ from optuna import TrialPruned
 from poutyne import LambdaCallback, ReduceLROnPlateau, Model
 
 from resnet9 import ResNet9
-from torchvision.models import resnet18, resnet50
+from torchvision.models import resnet50
 from utils import get_cifar_dataloader, get_imagenette_dataloader, save_checkpoint, load_checkpoint, get_tiny_dataloader
 from utils import RepeatPruner, MultiplePruners
 
 act_funcs: Dict[str, Callable] = {
-    "tanh": nn.Tanh,
-    "relu": nn.ReLU,
-    "mish": nn.Mish,
+    'tanh': nn.Tanh,
+    'relu': nn.ReLU,
+    'mish': nn.Mish,
 }
 
 
@@ -69,8 +69,7 @@ class Parameters:
             self.in_channels: int = 3
             self.num_classes: int = 200
         self.learning_rate: float = 0.001
-        # self.device: torch.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.device: torch.device = torch.device("cuda:1")
+        self.device: torch.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.target_delta: float = 1e-5
         self.log_interval: int = 20
         self.secure_rng: bool = False
@@ -80,7 +79,7 @@ class Parameters:
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, default='cifar', choices=['cifar', 'imagenette', 'tiny'])
-    parser.add_argument('--model-arch', type=str, default='resnet9', choices=['resnet9', 'resnet18', 'resnet50'])
+    parser.add_argument('--model-arch', type=str, default='resnet9', choices=['resnet9', 'resnet50'])
     parser.add_argument('--batch-size', type=int, default=128)
     parser.add_argument('--epochs', type=int, default=25)
     parser.add_argument('--act-func', type=str, default='mish', choices=['tanh', 'relu', 'mish'])
@@ -94,8 +93,8 @@ def parse_args():
     return parser.parse_args()
 
 
-if __name__ == "__main__":
-    warnings.filterwarnings("ignore")
+if __name__ == '__main__':
+    warnings.filterwarnings('ignore')
 
     args = parse_args()
     params = Parameters(
@@ -114,12 +113,12 @@ if __name__ == "__main__":
     )
 
     def objective(trial):
-        num_groups = trial.suggest_categorical("num_groups", [1, 8, 16, 32, 64, 2048])
+        num_groups = trial.suggest_categorical('num_groups', [1, 8, 16, 32, 64, 2048])
         params.num_groups = (num_groups, num_groups, num_groups, num_groups)
-        params.norm_layer = trial.suggest_categorical("norm_layer", ["batch", "group"])
-        params.scale_norm = trial.suggest_categorical("scale_norm", [True, False])
-        seed = trial.suggest_categorical("seed", [50, 34, 113])
-        act_func = trial.suggest_categorical("act_func", ["relu", "mish"])
+        params.norm_layer = trial.suggest_categorical('norm_layer', ['batch', 'group'])
+        params.scale_norm = trial.suggest_categorical('scale_norm', [True, False])
+        seed = trial.suggest_categorical('seed', [50, 34, 113])
+        act_func = trial.suggest_categorical('act_func', ['relu', 'mish'])
         params.act_func = act_funcs[act_func]
 
         torch.backends.cudnn.deterministic = True
@@ -128,7 +127,7 @@ if __name__ == "__main__":
         torch.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
 
-        if params.model_arch == "resnet9":
+        if params.model_arch == 'resnet9':
             model = ResNet9(
                 params.in_channels,
                 params.num_classes,
@@ -137,13 +136,7 @@ if __name__ == "__main__":
                 params.norm_layer,
                 params.num_groups
             ).to(params.device)
-        if params.model_arch == "resnet18":
-            model = resnet18(
-                num_groups=params.num_groups,
-                scale_norm=params.scale_norm,
-                num_classes=params.num_classes
-            ).to(params.device)
-        if params.model_arch == "resnet50":
+        if params.model_arch == 'resnet50':
             model = resnet50(
                 num_groups=params.num_groups,
                 scale_norm=params.scale_norm,
@@ -152,19 +145,19 @@ if __name__ == "__main__":
             ).to(params.device)
         print(model)
 
-        if params.dataset == "cifar":
+        if params.dataset == 'cifar':
             train_loader, val_loader = get_cifar_dataloader(bs_train=params.batch_size, bs_val=params.max_batch_size)
-        elif params.dataset == "imagenette":
+        elif params.dataset == 'imagenette':
             train_loader, val_loader = get_imagenette_dataloader(
                 bs_train=params.batch_size,
                 bs_val=params.max_batch_size,
                 image_size=params.image_size
             )
-        elif params.dataset == "tiny":
+        elif params.dataset == 'tiny':
             train_loader, val_loader = get_tiny_dataloader(bs_train=params.batch_size, bs_val=params.max_batch_size)
         else:
             raise ValueError(
-                "Please specify a valid dataset. ('cifar', 'imagenette', 'tiny')"
+                "Please specify a valid dataset. ('cifar', 'imagenette', 'tiny')'"
             )
 
         criterion = torch.nn.CrossEntropyLoss()
@@ -194,17 +187,17 @@ if __name__ == "__main__":
                     noise_generator=torch.Generator(device=params.device).manual_seed(seed)
                 )
 
-        print("Training starts")
+        print('Training starts')
 
         def report_prune(logs, epoch_number):
-            trial.report(logs["val_acc"], epoch_number)
+            trial.report(logs['val_acc'], epoch_number)
             if trial.should_prune():
                 raise TrialPruned()
 
         report_prune_cb = LambdaCallback(on_epoch_end=lambda epoch_number, logs: report_prune(logs, epoch_number))
         lr_scheduler = ReduceLROnPlateau(factor=0.5, patience=1, verbose=True)
         cbs = [report_prune_cb, lr_scheduler]
-        learner = Model(model, optimizer, criterion, batch_metrics=["acc"], device=params.device)
+        learner = Model(model, optimizer, criterion, batch_metrics=['acc'], device=params.device)
 
         print(len(train_loader))
 
@@ -221,26 +214,25 @@ if __name__ == "__main__":
         if params.privacy:
             params.final_epsilon, _ = privacy_engine.accountant.get_privacy_spent(delta=params.target_delta)
 
-        save_checkpoint(model, params, filename=f"models_pluto/{study_name}_{trial.number}.pth.tar")
-        load_checkpoint(f"models_pluto/{study_name}_{trial.number}.pth.tar", model)
+        save_checkpoint(model, params, filename=f'models_pluto/{study_name}_{trial.number}.pth.tar')
+        load_checkpoint(f'models_pluto/{study_name}_{trial.number}.pth.tar', model)
 
-        return max([d["val_acc"] for d in history])
+        return max([d['val_acc'] for d in history])
 
-    # study_name = "test_code"
-    study_name = "no-dp"
-    storage = "sqlite:///plutoscaleresnet.db"
+    study_name = 'test_code'
+    storage = 'sqlite:///scaleresnet.db'
 
-    if study_name == "test_code":
+    if study_name == 'test_code':
         optuna.delete_study(study_name, storage)
     search_space = {
-        "num_groups": [16],  # 1, 8, 16, 32, 64, 2048
-        "norm_layer": ["group"],
-        "scale_norm": [False],
-        "seed": [34],  # 34, 50, 113
-        "act_func": ["mish"],
+        'num_groups': [16],  # 1, 8, 16, 32, 64, 2048
+        'norm_layer': ['group'],
+        'scale_norm': [False],
+        'seed': [34],  # 34, 50, 113
+        'act_func': ['mish'],
     }
     study = optuna.create_study(
-        direction="maximize",
+        direction='maximize',
         storage=storage,
         study_name=study_name,
         sampler=optuna.samplers.GridSampler(search_space),
