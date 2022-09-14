@@ -199,17 +199,11 @@ def train(loader, model, optimizer, loss_fn, device):
         data = data.to(device=device)
         targets = targets.float().to(device=device)
         optimizer.zero_grad()
-
-        # forward
         predictions = model(data)
         loss = loss_fn(predictions, targets)
-
-        # backward
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-
-        # update tqdm loop
         loop.set_postfix(loss=loss.item())
 
 

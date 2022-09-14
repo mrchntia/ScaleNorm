@@ -30,7 +30,7 @@ from utils import (
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=str, default="carvana", choices=["carvana", "pancreas", "liver"])
-    parser.add_argument("--model-arch", type=str, default="monet", choices=["monet", "unet", "unet9", "linknet9"])
+    parser.add_argument("--model-arch", type=str, default="monet", choices=["unet9", "linknet9"])
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--act-func", type=str, default="mish", choices=["tanh", "relu", "mish"])
@@ -44,7 +44,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def main():
+if __name__ == "__main__":
     warnings.filterwarnings("ignore")
 
     args = parse_args()
@@ -172,9 +172,7 @@ def main():
         return max(dice_score_list)
 
     study_name = "liver_unet9_scale_0_5"
-    # study_name = "test_code"
     storage = "sqlite:///segmentation.db"
-    # optuna.delete_study(study_name, storage)
     search_space = {
         "privacy": [True],  # True, False
         "target_epsilon": [0.5],  # 10, 5, 3, 1, 0.5, 0
@@ -196,7 +194,3 @@ def main():
         load_if_exists=True
     )
     study.optimize(objective, n_trials=18)
-
-
-if __name__ == "__main__":
-    main()
