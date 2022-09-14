@@ -152,3 +152,4 @@ data
 /notebooks
 **/notebooks
 image_classification/train_no_dp.py
+semantic_segmentation/monet.py
