@@ -1,17 +1,15 @@
 import argparse
 import random
 import warnings
-
 import numpy as np
 
 import torch
+import wandb
 from opacus import PrivacyEngine
 from opacus.utils.batch_memory_manager import BatchMemoryManager
 
 from utils import get_cifar_dataloader, get_imagenette_dataloader, get_tiny_dataloader, test
 from resnet9 import ResNet9
-
-import wandb
 
 
 def parse_args():
