@@ -147,7 +147,6 @@ data
 */models_pluto/
 */wandb
 */*.db
-*/monet.py
 */requirements.txt
 /notebooks
 **/notebooks
